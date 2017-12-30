@@ -119,8 +119,6 @@ local msg = require 'mp.msg'
 local assdraw = require 'mp.assdraw'
 
 local opts = {
-    auto_start_gallery = false,
-
     thumbs_dir = "~/.mpv_thumbs_dir",
     auto_generate_thumbnails = true,
     generate_thumbnails_with_mpv = false,
@@ -136,6 +134,8 @@ local opts = {
     -- in percentage of the max size
     scrollbar_min_size = 10,
     
+    auto_start_gallery = true,
+
     -- various bindings in gallery mode
     UP        = "UP",
     DOWN      = "DOWN",

@@ -6,7 +6,7 @@ local globals = {
     thumbnail_width = 0,
     thumbnail_height = 0,
     generate_thumbnails_with_mpv = false,
-    tmp_path = "",
+    tmp_path = "", -- temporary name for generated thumbnails
 }
 
 local thumbnail_stack = {} -- stack of { path, hash } objects
