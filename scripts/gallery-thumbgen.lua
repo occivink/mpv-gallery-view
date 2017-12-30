@@ -7,8 +7,6 @@ local globals = {
     thumbnail_height = 0,
     generate_thumbnails_with_mpv = false,
     tmp_path = "",
-    ffmpeg_image_args = {},
-    ffmpeg_video_args = {},
 }
 
 local thumbnail_stack = {} -- stack of { path, hash } objects
@@ -24,31 +22,48 @@ function file_exists(path)
     end
 end
 
+function thumbnail_command(input_path)
+    local extension = string.lower(string.match(input_path, "%.([^.]+)$"))
+    local h, w = globals.thumbnail_height, globals.thumbnail_width
+    local scale = string.format("scale=iw*min(1\\,min(%d/iw\\,%d/ih)):-2", w, h)
+    local pad = string.format("pad=%d:%d:(%d-iw)/2:(%d-ih)/2:color=0x00000000", w, h, w, h)
+    local vf = string.format("%s,%s", scale, pad)
+    if extension == "mkv" or extension == "webm" or extension == "mp4" or extension == "avi" then
+        vf = "thumbnail," .. vf
+    end
+    if not globals.generate_thumbnails_with_mpv then
+        return {
+            "ffmpeg",
+            "-i", input_path,
+            "-vf", vf,
+            "-map", "v:0", "-f", "rawvideo", "-pix_fmt", "bgra", "-c:v", "rawvideo",
+            "-frames:v", "1",
+            "-y", "-loglevel", "quiet",
+            globals.tmp_path
+        }
+    else
+        vf = "lavfi=[" .. vf .. ",format=bgra]"
+        return {
+            "mpv",
+            input_path,
+            "--no-config", "--msg-level=all=no",
+            "--vf", vf,
+            "--audio", "no",
+            "--sub", "no",
+            "--frames", "1",
+            "--of", "rawvideo", "--ovc", "rawvideo",
+            "--o", globals.tmp_path
+        }
+    end
+end
+
 function init_thumbnails_generator(main_script_name, thumbs_dir, thumbnail_width, tumbnail_height, generate_thumbnails_with_mpv)
     globals.main_script_name = main_script_name
     globals.thumbs_dir = thumbs_dir
     globals.thumbnail_width = tonumber(thumbnail_width)
     globals.thumbnail_height = tonumber(tumbnail_height)
-    globals.generate_thumbnails_with_mpv = generate_thumbnails_with_mpv == "true"
+    globals.generate_thumbnails_with_mpv = (generate_thumbnails_with_mpv == "true")
     globals.tmp_path = utils.join_path(globals.thumbs_dir, "tmp")
-    local h, w = globals.thumbnail_height, globals.thumbnail_width
-    globals.ffmpeg_image_args = {
-        "ffmpeg",
-        "-i", path,
-        "-vf", string.format("scale=iw*min(1\\,min(%d/iw\\,%d/ih)):-2", w, h) .. "," .. string.format("pad=%d:%d:(%d-iw)/2:(%d-ih)/2:color=0x00000000", w, h, w, h),
-        "-map", "v:0", "-f", "rawvideo", "-pix_fmt", "bgra", "-c:v", "rawvideo",
-        "-y", "-loglevel", "quiet",
-        globals.tmp_path
-    }
-    globals.ffmpeg_video_args = {
-        "ffmpeg",
-        "-i", path,
-        "-vf", "thumbnail," .. globals.ffmpeg_image_args[5],
-        "-map", "v:0", "-f", "rawvideo", "-pix_fmt", "bgra", "-c:v", "rawvideo",
-        "-frames:v", "1",
-        "-y", "-loglevel", "quiet",
-        globals.tmp_path
-    }
 end
 
 function generate_thumbnail(input_path, hash)
@@ -56,16 +71,8 @@ function generate_thumbnail(input_path, hash)
         string.format("%s_%d_%d", hash, globals.thumbnail_width, globals.thumbnail_height)
     )
     if file_exists(output_path) then return true end
-    local args
-    local extension = string.match(input_path, "%.([^.]+)$")
-    if extension == "mkv" or extension == "mp4" or extension == "avi" then 
-        args = globals.ffmpeg_video_args
-    else
-        args = globals.ffmpeg_image_args
-    end
-    args[3] = input_path
-    local res = utils.subprocess({ args = args, cancellable = false })
-    --atomically generate the output to avoid loading half-generated thumbnails (results in crashes)
+    local res = utils.subprocess({ args = thumbnail_command(input_path), cancellable = false })
+    --"atomically" generate the output to avoid loading half-generated thumbnails (results in crashes)
     if res.status == 0 then
         if os.rename(globals.tmp_path, output_path) then
             return true
