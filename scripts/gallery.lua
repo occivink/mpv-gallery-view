@@ -418,7 +418,7 @@ function show_overlays()
             remove_overlay(i + 1)
             if opts.auto_generate_thumbnails then
                 overlays.missing[filename_hash] = i + 1
-                local generator = generators[#overlays.missing % #generators + 1]
+                local generator = generators[i % #generators + 1]
                 mp.commandv("script-message-to", generator, "push-thumbnail-to-stack", filename, filename_hash)
             end
         end

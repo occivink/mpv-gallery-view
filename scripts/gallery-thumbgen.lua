@@ -23,11 +23,11 @@ function file_exists(path)
 end
 
 function thumbnail_command(input_path)
-    local extension = string.lower(string.match(input_path, "%.([^.]+)$"))
     local h, w = globals.thumbnail_height, globals.thumbnail_width
     local scale = string.format("scale=iw*min(1\\,min(%d/iw\\,%d/ih)):-2", w, h)
     local pad = string.format("pad=%d:%d:(%d-iw)/2:(%d-ih)/2:color=0x00000000", w, h, w, h)
     local vf = string.format("%s,%s", scale, pad)
+    local extension = string.lower(string.match(input_path, "%.([^.]+)$"))
     if extension == "mkv" or extension == "webm" or extension == "mp4" or extension == "avi" then
         vf = "thumbnail," .. vf
     end
@@ -63,7 +63,7 @@ function init_thumbnails_generator(main_script_name, thumbs_dir, thumbnail_width
     globals.thumbnail_width = tonumber(thumbnail_width)
     globals.thumbnail_height = tonumber(tumbnail_height)
     globals.generate_thumbnails_with_mpv = (generate_thumbnails_with_mpv == "true")
-    globals.tmp_path = utils.join_path(globals.thumbs_dir, "tmp")
+    globals.tmp_path = utils.join_path(globals.thumbs_dir, mp.get_script_name())
 end
 
 function generate_thumbnail(input_path, hash)
