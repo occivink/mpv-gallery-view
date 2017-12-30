@@ -40,6 +40,7 @@ done
 * Basic mouse support.
 * Remove entry from playlist and gallery.
 * Show filename under thumbnail.
+* Handle playlist with paths containing ".."
 
 # Limitations
 

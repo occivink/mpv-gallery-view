@@ -15,7 +15,7 @@ local opts = {
     scrollbar_side = "left",
     scrollbar_min_size = 10,
 
-    auto_start_gallery = true,
+    auto_start_gallery = false,
     max_generators = 64,
 
     UP        = "UP",
@@ -420,26 +420,26 @@ end
 function show_overlays()
     local todo = {}
     overlays.missing = {}
-    -- reverse iterate so that the first thumbnails will be at the top of the stack
-    for i = view.last - view.first, 0, -1 do
+    for i = 0, view.last - view.first do
         local filename = playlist[view.first + i]
         local filename_hash = string.sub(sha256(filename), 1, 12)
         local thumb_filename = filename_hash .. "_" .. geometry.size_x .. "_" .. geometry.size_y
         local thumb_path = utils.join_path(opts.thumbs_dir, thumb_filename)
         if file_exists(thumb_path) then
-            todo[#todo+1] = { index = i + 1, thumb_path = thumb_path }
+            show_overlay(i + 1, thumb_path)
         else
             remove_overlay(i + 1)
-            if opts.auto_generate_thumbnails then
-                overlays.missing[filename_hash] = i + 1
-                local generator = generators[i % #generators + 1]
-                mp.commandv("script-message-to", generator, "push-thumbnail-to-stack", filename, filename_hash)
-            end
+            todo[#todo + 1] = { index = i + 1, path = filename, hash = filename_hash }
         end
     end
-    -- but show the overlays in the correct order
-    for i = #todo, 1, -1 do
-        show_overlay(todo[i].index, todo[i].thumb_path)
+    -- reverse iterate so that the first thumbnail is at the top of the stack
+    if opts.auto_generate_thumbnails then
+        for i = #todo, 1, -1 do
+            local generator = generators[i % #generators + 1]
+            local t = todo[i]
+            overlays.missing[t.hash] = t.index
+            mp.commandv("script-message-to", generator, "push-thumbnail-to-stack", t.path, t.hash)
+        end
     end
 end
 
