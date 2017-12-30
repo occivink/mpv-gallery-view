@@ -1,16 +1,26 @@
-Gallery-view script for mpv.
+Gallery-view script for [mpv](https://github.com/mpv-player/mpv). Shows thumbnails of entries in the plyalist in a grid view.
 
 # Important
 
-* **The default thumbnail directory is probably is probably not appropriate for your system.** See Installation for instructions on how to change it.
+* **The default thumbnail directory is probably not appropriate for your system.** See Installation for instructions on how to change it.
 * **Make sure that the thumbnail directory exists for auto-generation to work.**
-* **Also make sure to have ffmpeg in your PATH.** Or use mpv for thumbnails generation (slower), see settings.
+* **Also make sure to have ffmpeg in your PATH.** Or use mpv for thumbnails generation (not recommended : slower, no transparency transparency), see settings.
+
+# Installation
+
+Copy `scripts/gallery.lua` to your mpv scripts directory.
+
+If you want on-demand thumbnail generation, copy `scripts/gallery-thumbgen.lua` too. You can make multiple copies of it (with different names) to potentially speed up generation, they will register themselves automatically.
+
+If you want to customize the script (in particular the thumbnail directory), copy `lua-settings/gallery.conf` and modify it to your liking.
+
+The gallery view is bound to `g` by default but can be rebound in input.conf with `t script-message gallery-view`.
 
 # Thumbnail generation
 
 By default, thumbnails are generated on-demand, and reused throughout mpv instances.
 
-Thumbnails can also be generated offline by running this shell snippet (customize according to your needs):
+Thumbnails can also be generated offline by running this shell snippet (modify according to your needs):
 ```
 w=192
 h=108
@@ -24,25 +34,12 @@ for i in $(find . -name '*png'); do
 done
 ```
 
-# Installation 
-
-Copy `scripts/gallery.lua` to your mpv scripts directory. 
-
-If you want on-demand thumbnail generation, copy `scripts/gallery-thumbgen.lua` too. You can make multiple copies of it (with different names) to speed up generation, they will register themselves automatically.
-
-If you want to customize the script (in particular the thumbnail directory), copy `lua-settings/gallery.conf` and modify it to your liking.
-
-The gallery view is bound to `g` by default but can be rebound in input.conf with `t script-message gallery-view`.
-
 # TODO
 
-Add some kind of checkerboard pattern behind transparent thumbnails (ideally with ffmpeg).
-
-Basic mouse support.
-
-Remove file from gallery and playlist.
-
-Show filename under thumbnail.
+* Add some kind of checkerboard pattern behind transparent thumbnails (ideally with an ffmpeg filter) (?).
+* Basic mouse support.
+* Remove entry from playlist and gallery.
+* Show filename under thumbnail.
 
 # Limitations
 
