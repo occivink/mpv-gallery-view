@@ -119,6 +119,8 @@ local msg = require 'mp.msg'
 local assdraw = require 'mp.assdraw'
 
 local opts = {
+    auto_start_gallery = false,
+
     thumbs_dir = "~/.mpv_thumbs_dir",
     auto_generate_thumbnails = true,
     generate_thumbnails_with_mpv = false,
@@ -281,7 +283,7 @@ function idle_handler()
             local old_max_thumbs = geometry.rows * geometry.columns
             get_geometry(window_w, window_h)
             local max_thumbs = geometry.rows * geometry.columns
-            if max_thumbs == 0 then
+            if max_thumbs <= 0 then
                 quit_gallery_view(selection.old)
                 return
             elseif max_thumbs ~= old_max_thumbs then
@@ -363,7 +365,7 @@ function show_selection_ass()
     if opts.scrollbar then
         local before = (v.first - 1) / #playlist
         local after = (#playlist - v.last) / #playlist
-        if before > 0 or after > 0 then
+        if before + after > 0 then
             local p = opts.scrollbar_min_size / 100
             if before + after > 1 - p then
                 if before == 0 then
@@ -475,7 +477,7 @@ function start_gallery_view()
     local old_max_thumbs = geometry.rows * geometry.columns
     get_geometry(mp.get_osd_size())
     local max_thumbs = geometry.rows * geometry.columns
-    if max_thumbs == 0 then return end
+    if max_thumbs <= 0 then return end
     save_properties()
     selection.old = mp.get_property_number("playlist-pos-1")
     selection.now = selection.old
@@ -536,5 +538,16 @@ mp.register_script_message("gallery-thunbnails-generator-registered", function(g
         tostring(opts.generate_thumbnails_with_mpv)
     )
 end)
+
+function auto_start_gallery(key, value)
+    if mp.get_property_number("playlist-count") > 1 then
+        mp.unobserve_property(auto_start_gallery)
+        start_gallery_view()
+    end
+end
+
+if opts.auto_start_gallery then
+    mp.observe_property("osd-width", "number", auto_start_gallery)
+end
 
 mp.add_key_binding("g", "gallery-view", toggle_gallery)
