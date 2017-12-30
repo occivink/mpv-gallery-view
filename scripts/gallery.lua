@@ -1,4 +1,38 @@
---sha256 code from http://lua-users.org/wiki/SecureHashAlgorithm
+local utils = require 'mp.utils'
+local msg = require 'mp.msg'
+local assdraw = require 'mp.assdraw'
+
+local opts = {
+    thumbs_dir = "~/.mpv_thumbs_dir",
+    auto_generate_thumbnails = true,
+    generate_thumbnails_with_mpv = false,
+
+    thumbnail_width = 192,
+    thumbnail_height = 108,
+
+    margin = 20,
+    scrollbar = true,
+    scrollbar_side = "left",
+    scrollbar_min_size = 10,
+
+    auto_start_gallery = true,
+    max_generators = 64,
+
+    UP        = "UP",
+    DOWN      = "DOWN",
+    LEFT      = "LEFT",
+    RIGHT     = "RIGHT",
+    PAGE_UP   = "PGUP",
+    PAGE_DOWN = "PGDWN",
+    FIRST     = "HOME",
+    LAST      = "END",
+    ACCEPT    = "ENTER",
+    CANCEL    = "ESC",
+}
+(require 'mp.options').read_options(opts)
+opts.thumbs_dir = string.gsub(opts.thumbs_dir, "^~", os.getenv("HOME"))
+
+--sha256 code below from http://lua-users.org/wiki/SecureHashAlgorithm
 --licensed under MIT
 --Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 --The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
@@ -114,89 +148,7 @@ function sha256(msg)
     return finalresult256(H)
 end
 
-local utils = require 'mp.utils'
-local msg = require 'mp.msg'
-local assdraw = require 'mp.assdraw'
-
-local opts = {
-    thumbs_dir = "~/.mpv_thumbs_dir",
-    auto_generate_thumbnails = true,
-    generate_thumbnails_with_mpv = false,
-    
-    thumbnail_width = 192,
-    thumbnail_height = 108,
-    
-    -- minimum pixels between thumbnails
-    margin = 20,
-    scrollbar = true,
-    -- left or right
-    scrollbar_side = "left",
-    -- in percentage of the max size
-    scrollbar_min_size = 10,
-    
-    auto_start_gallery = true,
-
-    -- various bindings in gallery mode
-    UP        = "UP",
-    DOWN      = "DOWN",
-    LEFT      = "LEFT",
-    RIGHT     = "RIGHT",
-    PAGE_UP   = "PGUP",
-    PAGE_DOWN = "PGDWN",
-    FIRST     = "HOME",
-    LAST      = "END",
-    ACCEPT    = "ENTER",
-    CANCEL    = "ESC",
-}
-(require 'mp.options').read_options(opts)
-opts.thumbs_dir = string.gsub(opts.thumbs_dir, "^~", os.getenv("HOME"))
-
-function save_and_clear_playlist()
-    playlist = {}
-    local cwd = utils.getcwd()
-    for _, f in ipairs(mp.get_property_native("playlist")) do
-        playlist[#playlist + 1]  = utils.join_path(cwd, string.gsub(f.filename, "^%./", ""))
-    end
-    mp.command("playlist-clear")
-    mp.command("playlist-remove current")
-end
-
-function restore_playlist_and_select(select)
-    mp.commandv("loadfile", playlist[select], "replace")
-    for i = 1, select - 1 do
-        mp.commandv("loadfile", playlist[i], "append")
-    end
-    for i = select + 1, #playlist do
-        mp.commandv("loadfile", playlist[i], "append")
-    end
-    mp.commandv("playlist-move", 0, select)
-end
-
-function file_exists(path)
-    local f = io.open(path, "r")
-    if f ~= nil then
-        io.close(f)
-        return true
-    else
-        return false
-    end
-end
-
-local inited = false
-function init()
-    if not inited then
-        inited = true
-        if utils.file_info then -- 0.28+
-            local res = utils.file_info(opts.thumbs_dir)
-            if not res or not res.is_dir then
-                msg.error(string.format("Thumbnail directory \"%s\" does not exist", opts.thumbs_dir))
-            end
-        end
-        if opts.auto_generate_thumbnails and #generators == 0 then
-            msg.error("Auto-generation on, but no generators registered")
-        end
-    end
-end
+-- end of sha code
 
 active = false
 geometry = {
@@ -234,13 +186,116 @@ misc = {
 }
 generators = {} -- list of generator scripts that have registered themselves
 
+local inited = false
+function init()
+    if not inited then
+        inited = true
+        if utils.file_info then -- 0.28+
+            local res = utils.file_info(opts.thumbs_dir)
+            if not res or not res.is_dir then
+                msg.error(string.format("Thumbnail directory \"%s\" does not exist", opts.thumbs_dir))
+            end
+        end
+        if opts.auto_generate_thumbnails and #generators == 0 then
+            msg.error("Auto-generation on, but no generators registered")
+        end
+    end
+end
+
+function file_exists(path)
+    local f = io.open(path, "r")
+    if f ~= nil then
+        io.close(f)
+        return true
+    else
+        return false
+    end
+end
+
+local bindings_repeat = {}
+    bindings_repeat[opts.UP]        = function() pending.selection_increment = - geometry.columns end
+    bindings_repeat[opts.DOWN]      = function() pending.selection_increment =   geometry.columns end
+    bindings_repeat[opts.LEFT]      = function() pending.selection_increment = - 1 end
+    bindings_repeat[opts.RIGHT]     = function() pending.selection_increment =   1 end
+    bindings_repeat[opts.PAGE_UP]   = function() pending.selection_increment = - geometry.columns * geometry.rows end
+    bindings_repeat[opts.PAGE_DOWN] = function() pending.selection_increment =   geometry.columns * geometry.rows end
+
+local bindings = {}
+    bindings[opts.FIRST]  = function() pending.selection_increment = -100000000 end
+    bindings[opts.LAST]   = function() pending.selection_increment =  100000000 end
+    bindings[opts.ACCEPT] = function() quit_gallery_view(selection.now) end
+    bindings[opts.CANCEL] = function() quit_gallery_view(selection.old) end
+
+function window_size_changed()
+    pending.window_size_changed = true
+end
+
+function setup_handlers()
+    for key, func in pairs(bindings_repeat) do
+        mp.add_forced_key_binding(key, "gallery-view-"..key, func, {repeatable = true})
+    end
+    for key, func in pairs(bindings) do
+        mp.add_forced_key_binding(key, "gallery-view-"..key, func)
+    end
+    for _, prop in ipairs({ "osd-width", "osd-height" }) do
+        mp.observe_property(prop, bool, window_size_changed)
+    end
+    mp.register_idle(idle_handler)
+end
+
+function teardown_handlers()
+    for key, _ in pairs(bindings_repeat) do
+        mp.remove_key_binding("gallery-view-"..key)
+    end
+    for key, _ in pairs(bindings) do
+        mp.remove_key_binding("gallery-view-"..key)
+    end
+    mp.unobserve_property(window_size_changed)
+    mp.unregister_idle(idle_handler)
+end
+
+function save_and_clear_playlist()
+    playlist = {}
+    local cwd = utils.getcwd()
+    for _, f in ipairs(mp.get_property_native("playlist")) do
+        playlist[#playlist + 1]  = utils.join_path(cwd, string.gsub(f.filename, "^%./", ""))
+    end
+    mp.command("playlist-clear")
+    mp.command("playlist-remove current")
+end
+
+function restore_playlist_and_select(select)
+    mp.commandv("loadfile", playlist[select], "replace")
+    for i = 1, select - 1 do
+        mp.commandv("loadfile", playlist[i], "append")
+    end
+    for i = select + 1, #playlist do
+        mp.commandv("loadfile", playlist[i], "append")
+    end
+    mp.commandv("playlist-move", 0, select)
+end
+
+function restore_properties()
+    mp.set_property("idle", misc.old_idle)
+    mp.set_property("force-window", misc.old_force_window)
+    mp.set_property("geometry", misc.old_geometry)
+end
+
+function save_properties()
+    misc.old_idle = mp.get_property("idle")
+    misc.old_force_window = mp.get_property("force-window")
+    misc.old_geometry = mp.get_property("geometry")
+    mp.set_property_bool("idle", true)
+    mp.set_property_bool("force-window", true)
+    mp.set_property("geometry", geometry.window_w .. "x" .. geometry.window_h)
+end
+
 function get_geometry(window_w, window_h)
     geometry.window_w, geometry.window_h = window_w, window_h
     geometry.size_x = opts.thumbnail_width
     geometry.size_y = opts.thumbnail_height
-    local m = opts.margin
-    geometry.rows = math.floor((geometry.window_h - m) / (geometry.size_y + m))
-    geometry.columns = math.floor((geometry.window_w - m) / (geometry.size_x + m))
+    geometry.rows = math.floor((geometry.window_h - opts.margin) / (geometry.size_y + opts.margin))
+    geometry.columns = math.floor((geometry.window_w - opts.margin) / (geometry.size_x + opts.margin))
     if (geometry.rows * geometry.columns > 64) then
         if (geometry.rows > 8 and geometry.columns > 8) then
             geometry.rows = 8
@@ -304,47 +359,6 @@ function center_view_on_selection()
         view.last = #playlist
         view.first = math.max(1, (last_row - geometry.rows + 1) * geometry.columns + 1)
     end
-end
-
-local bindings_repeat = {}
-    bindings_repeat[opts.UP]        = function() pending.selection_increment = - geometry.columns end
-    bindings_repeat[opts.DOWN]      = function() pending.selection_increment =   geometry.columns end
-    bindings_repeat[opts.LEFT]      = function() pending.selection_increment = - 1 end
-    bindings_repeat[opts.RIGHT]     = function() pending.selection_increment =   1 end
-    bindings_repeat[opts.PAGE_UP]   = function() pending.selection_increment = - geometry.columns * geometry.rows end
-    bindings_repeat[opts.PAGE_DOWN] = function() pending.selection_increment =   geometry.columns * geometry.rows end
-    
-local bindings = {} 
-    bindings[opts.FIRST]  = function() pending.selection_increment = -100000000 end
-    bindings[opts.LAST]   = function() pending.selection_increment =  100000000 end
-    bindings[opts.ACCEPT] = function() quit_gallery_view(selection.now) end
-    bindings[opts.CANCEL] = function() quit_gallery_view(selection.old) end
-
-function window_size_changed()
-    pending.window_size_changed = true
-end
-
-function setup_handlers()
-    for key, func in pairs(bindings_repeat) do
-        mp.add_forced_key_binding(key, "gallery-view-"..key, func, {repeatable = true})
-    end
-    for key, func in pairs(bindings) do
-        mp.add_forced_key_binding(key, "gallery-view-"..key, func)
-    end
-    for _, prop in ipairs({ "osd-width", "osd-height" }) do
-        mp.observe_property(prop, bool, window_size_changed)
-    end
-    mp.register_idle(idle_handler)
-end
-function teardown_handlers()
-    for key, _ in pairs(bindings_repeat) do
-        mp.remove_key_binding("gallery-view-"..key)
-    end
-    for key, _ in pairs(bindings) do
-        mp.remove_key_binding("gallery-view-"..key)
-    end
-    mp.unobserve_property(window_size_changed)
-    mp.unregister_idle(idle_handler)
 end
 
 function show_selection_ass()
@@ -457,21 +471,6 @@ function remove_overlay(index_1)
     end
 end
 
-function restore_properties()
-    mp.set_property("idle", misc.old_idle)
-    mp.set_property("force-window", misc.old_force_window)
-    mp.set_property("geometry", misc.old_geometry)
-end
-
-function save_properties()
-    misc.old_idle = mp.get_property("idle")
-    misc.old_force_window = mp.get_property("force-window")
-    misc.old_geometry = mp.get_property("geometry")
-    mp.set_property_bool("idle", true)
-    mp.set_property_bool("force-window", true)
-    mp.set_property("geometry", geometry.window_w .. "x" .. geometry.window_h)
-end
-
 function start_gallery_view()
     init()
     local old_max_thumbs = geometry.rows * geometry.columns
@@ -529,6 +528,7 @@ mp.register_script_message("thumbnail-generated", function(hash)
 end)
 
 mp.register_script_message("gallery-thunbnails-generator-registered", function(generator_name)
+    if #generators >= opts.max_generators then return end
     generators[#generators + 1] = generator_name
     mp.commandv("script-message-to", generator_name, "init-thumbnails-generator",
         mp.get_script_name(),
