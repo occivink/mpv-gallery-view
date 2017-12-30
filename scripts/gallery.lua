@@ -189,11 +189,11 @@ function init()
         if utils.file_info then -- 0.28+
             local res = utils.file_info(opts.thumbs_dir)
             if not res or not res.is_dir then
-                msg.error(string.format("Gallery: thumbnail directory %s does not exist", opts.thumbs_dir))
+                msg.error(string.format("Thumbnail directory \"%s\" does not exist", opts.thumbs_dir))
             end
         end
         if opts.auto_generate_thumbnails and #generators == 0 then
-            msg.error("Gallery: auto-generation on, but no generators registered")
+            msg.error("Auto-generation on, but no generators registered")
         end
     end
 end
