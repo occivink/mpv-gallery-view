@@ -12,7 +12,7 @@ Copy `scripts/gallery.lua` to your mpv scripts directory.
 
 If you want on-demand thumbnail generation, copy `scripts/gallery-thumbgen.lua` too. You can make multiple copies of it (with different names) to potentially speed up generation, they will register themselves automatically.
 
-If you want to customize the script (in particular the thumbnail directory), copy `lua-settings/gallery.conf` and modify it to your liking.
+If you want to customize the script (in particular the thumbnail directory), copy `lua-settings/gallery.conf` and modify it to your liking or edit gallery.lua directly (not recommended).
 
 The gallery view is bound to `g` by default but can be rebound in input.conf with `t script-message gallery-view`.
 

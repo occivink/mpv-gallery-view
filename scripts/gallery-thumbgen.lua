@@ -27,9 +27,12 @@ function thumbnail_command(input_path)
     local scale = string.format("scale=iw*min(1\\,min(%d/iw\\,%d/ih)):-2", w, h)
     local pad = string.format("pad=%d:%d:(%d-iw)/2:(%d-ih)/2:color=0x00000000", w, h, w, h)
     local vf = string.format("%s,%s", scale, pad)
-    local extension = string.lower(string.match(input_path, "%.([^.]+)$"))
-    if extension == "mkv" or extension == "webm" or extension == "mp4" or extension == "avi" then
-        vf = "thumbnail," .. vf
+    local extension = string.match(input_path, "%.([^.]+)$")
+    if extension then
+        extension = string.lower(extension)
+        if extension == "mkv" or extension == "webm" or extension == "mp4" or extension == "avi" then
+            vf = "thumbnail," .. vf
+        end
     end
     if not globals.generate_thumbnails_with_mpv then
         return {
