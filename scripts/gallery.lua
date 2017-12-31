@@ -30,7 +30,7 @@ local opts = {
     CANCEL    = "ESC",
 }
 (require 'mp.options').read_options(opts)
-opts.thumbs_dir = string.gsub(opts.thumbs_dir, "^~", os.getenv("HOME"))
+opts.thumbs_dir = string.gsub(opts.thumbs_dir, "^~", os.getenv("HOME") or "")
 
 --sha256 code below from http://lua-users.org/wiki/SecureHashAlgorithm
 --licensed under MIT
