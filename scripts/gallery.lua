@@ -433,7 +433,7 @@ function show_overlays()
         end
     end
     -- reverse iterate so that the first thumbnail is at the top of the stack
-    if opts.auto_generate_thumbnails then
+    if opts.auto_generate_thumbnails and #generators >= 1 then
         for i = #todo, 1, -1 do
             local generator = generators[i % #generators + 1]
             local t = todo[i]
