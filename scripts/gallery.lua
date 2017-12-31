@@ -529,6 +529,9 @@ end)
 
 mp.register_script_message("gallery-thunbnails-generator-registered", function(generator_name)
     if #generators >= opts.max_generators then return end
+    for _, g in ipairs(generators) do
+        if generator_name == g then return end
+    end
     generators[#generators + 1] = generator_name
     mp.commandv("script-message-to", generator_name, "init-thumbnails-generator",
         mp.get_script_name(),
