@@ -1,10 +1,12 @@
 Gallery-view script for [mpv](https://github.com/mpv-player/mpv). Shows thumbnails of entries in the plyalist in a grid view.
 
+[![demo](https://i.vimeocdn.com/filter/overlay?src0=https%3A%2F%2Fi.vimeocdn.com%2Fvideo%2F674980468_1280x720.jpg&src1=https%3A%2F%2Ff.vimeocdn.com%2Fimages_v6%2Fshare%2Fplay_icon_overlay.png)](https://vimeo.com/249226823)
+
 # Important
 
 * **The default thumbnail directory is probably not appropriate for your system.** See Installation for instructions on how to change it.
 * **Make sure that the thumbnail directory exists for auto-generation to work.**
-* **Also make sure to have ffmpeg in your PATH.** Or use mpv for thumbnails generation (not recommended : slower, no transparency transparency), see settings.
+* **Also make sure to have ffmpeg in your PATH.** Or use mpv for thumbnails generation (not recommended : slower, no transparency), see settings.
 
 # Installation
 
