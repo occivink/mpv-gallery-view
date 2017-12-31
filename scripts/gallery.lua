@@ -38,8 +38,64 @@ opts.thumbs_dir = string.gsub(opts.thumbs_dir, "^~", os.getenv("HOME") or "")
 --The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
 --THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-local band, rrotate, bxor, rshift, bnot =
-  bit32.band, bit32.rrotate, bit32.bxor, bit32.rshift, bit32.bnot
+local band, rrotate, bxor, rshift, bnot
+if bit32 then
+    band, rrotate, bxor, rshift, bnot =  bit32.band, bit32.rrotate, bit32.bxor, bit32.rshift, bit32.bnot
+else
+    -- lua implementation of bit32 from https://www.snpedia.com/extensions/Scribunto/engines/LuaCommon/lualib/bit32.lua
+    -- licensed under MIT too
+    bnot = function(x)
+        x = math.floor(tonumber(x)) % 0x100000000
+        return ( -x - 1 ) % 0x100000000
+    end
+    local logic_and = {
+        [0] = { [0] = 0, 0, 0, 0},
+        [1] = { [0] = 0, 1, 0, 1},
+        [2] = { [0] = 0, 0, 2, 2},
+        [3] = { [0] = 0, 1, 2, 3},
+    }
+    local logic_xor = {
+        [0] = { [0] = 0, 1, 2, 3},
+        [1] = { [0] = 1, 0, 3, 2},
+        [2] = { [0] = 2, 3, 0, 1},
+        [3] = { [0] = 3, 2, 1, 0},
+    }
+    local function comb( name, args, nargs, s, t )
+        for i = 1, nargs do
+            args[i] = math.floor(tonumber(args[i])) % 0x100000000
+        end
+        local pow = 1
+        local ret = 0
+        for b = 0, 31, 2 do
+            local c = s
+            for i = 1, nargs do
+                c = t[c][args[i] % 4]
+                args[i] = math.floor( args[i] / 4 )
+            end
+            ret = ret + c * pow
+            pow = pow * 4
+        end
+        return ret
+    end
+    band = function( ... )
+        return comb( 'band', { ... }, select( '#', ... ), 3, logic_and )
+    end
+    bxor = function( ... )
+        return comb( 'bxor', { ... }, select( '#', ... ), 0, logic_xor )
+    end
+    rshift = function(x, disp)
+        x = math.floor(tonumber(x)) % 0x100000000
+        disp = math.floor(tonumber(disp))
+        disp = math.min( math.max( -32, disp ), 32)
+        return math.floor( x / 2^disp ) % 0x100000000
+    end
+    rrotate = function(x, disp)
+        x = math.floor(tonumber(x)) % 0x100000000
+        disp = -math.floor(tonumber(disp)) % 32
+        local x = x * 2^disp
+        return ( x % 0x100000000 ) + math.floor( x / 0x100000000 )
+    end
+end
 local k = {
    0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5,
    0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
