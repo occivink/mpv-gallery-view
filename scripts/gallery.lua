@@ -246,18 +246,20 @@ misc = {
 }
 generators = {} -- list of generator scripts that have registered themselves
 
-local inited = false
-function init()
-    if not inited then
-        inited = true
-        if utils.file_info then -- 0.28+
-            local res = utils.file_info(opts.thumbs_dir)
-            if not res or not res.is_dir then
-                msg.error(string.format("Thumbnail directory \"%s\" does not exist", opts.thumbs_dir))
+do
+    local inited = false
+    function init()
+        if not inited then
+            inited = true
+            if utils.file_info then -- 0.28+
+                local res = utils.file_info(opts.thumbs_dir)
+                if not res or not res.is_dir then
+                    msg.error(string.format("Thumbnail directory \"%s\" does not exist", opts.thumbs_dir))
+                end
             end
-        end
-        if opts.auto_generate_thumbnails and #generators == 0 then
-            msg.error("Auto-generation on, but no generators registered")
+            if opts.auto_generate_thumbnails and #generators == 0 then
+                msg.error("Auto-generation on, but no generators registered")
+            end
         end
     end
 end
@@ -272,46 +274,48 @@ function file_exists(path)
     end
 end
 
-local bindings_repeat = {}
-    bindings_repeat[opts.UP]        = function() pending.selection_increment = - geometry.columns end
-    bindings_repeat[opts.DOWN]      = function() pending.selection_increment =   geometry.columns end
-    bindings_repeat[opts.LEFT]      = function() pending.selection_increment = - 1 end
-    bindings_repeat[opts.RIGHT]     = function() pending.selection_increment =   1 end
-    bindings_repeat[opts.PAGE_UP]   = function() pending.selection_increment = - geometry.columns * geometry.rows end
-    bindings_repeat[opts.PAGE_DOWN] = function() pending.selection_increment =   geometry.columns * geometry.rows end
+do
+    local bindings_repeat = {}
+        bindings_repeat[opts.UP]        = function() pending.selection_increment = - geometry.columns end
+        bindings_repeat[opts.DOWN]      = function() pending.selection_increment =   geometry.columns end
+        bindings_repeat[opts.LEFT]      = function() pending.selection_increment = - 1 end
+        bindings_repeat[opts.RIGHT]     = function() pending.selection_increment =   1 end
+        bindings_repeat[opts.PAGE_UP]   = function() pending.selection_increment = - geometry.columns * geometry.rows end
+        bindings_repeat[opts.PAGE_DOWN] = function() pending.selection_increment =   geometry.columns * geometry.rows end
 
-local bindings = {}
-    bindings[opts.FIRST]  = function() pending.selection_increment = -100000000 end
-    bindings[opts.LAST]   = function() pending.selection_increment =  100000000 end
-    bindings[opts.ACCEPT] = function() quit_gallery_view(selection.now) end
-    bindings[opts.CANCEL] = function() quit_gallery_view(selection.old) end
+    local bindings = {}
+        bindings[opts.FIRST]  = function() pending.selection_increment = -100000000 end
+        bindings[opts.LAST]   = function() pending.selection_increment =  100000000 end
+        bindings[opts.ACCEPT] = function() quit_gallery_view(selection.now) end
+        bindings[opts.CANCEL] = function() quit_gallery_view(selection.old) end
 
-function window_size_changed()
-    pending.window_size_changed = true
-end
+    local function window_size_changed()
+        pending.window_size_changed = true
+    end
 
-function setup_handlers()
-    for key, func in pairs(bindings_repeat) do
-        mp.add_forced_key_binding(key, "gallery-view-"..key, func, {repeatable = true})
+    function setup_handlers()
+        for key, func in pairs(bindings_repeat) do
+            mp.add_forced_key_binding(key, "gallery-view-"..key, func, {repeatable = true})
+        end
+        for key, func in pairs(bindings) do
+            mp.add_forced_key_binding(key, "gallery-view-"..key, func)
+        end
+        for _, prop in ipairs({ "osd-width", "osd-height" }) do
+            mp.observe_property(prop, bool, window_size_changed)
+        end
+        mp.register_idle(idle_handler)
     end
-    for key, func in pairs(bindings) do
-        mp.add_forced_key_binding(key, "gallery-view-"..key, func)
-    end
-    for _, prop in ipairs({ "osd-width", "osd-height" }) do
-        mp.observe_property(prop, bool, window_size_changed)
-    end
-    mp.register_idle(idle_handler)
-end
 
-function teardown_handlers()
-    for key, _ in pairs(bindings_repeat) do
-        mp.remove_key_binding("gallery-view-"..key)
+    function teardown_handlers()
+        for key, _ in pairs(bindings_repeat) do
+            mp.remove_key_binding("gallery-view-"..key)
+        end
+        for key, _ in pairs(bindings) do
+            mp.remove_key_binding("gallery-view-"..key)
+        end
+        mp.unobserve_property(window_size_changed)
+        mp.unregister_idle(idle_handler)
     end
-    for key, _ in pairs(bindings) do
-        mp.remove_key_binding("gallery-view-"..key)
-    end
-    mp.unobserve_property(window_size_changed)
-    mp.unregister_idle(idle_handler)
 end
 
 function save_and_clear_playlist()
