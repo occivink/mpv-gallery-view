@@ -30,7 +30,7 @@ local opts = {
     CANCEL    = "ESC",
 }
 (require 'mp.options').read_options(opts)
-opts.thumbs_dir = string.gsub(opts.thumbs_dir, "^~", os.getenv("HOME") or "")
+opts.thumbs_dir = string.gsub(opts.thumbs_dir, "^~", os.getenv("HOME") or "~")
 
 --sha256 code below from http://lua-users.org/wiki/SecureHashAlgorithm
 --licensed under MIT
@@ -398,7 +398,7 @@ function idle_handler()
             local old_max_thumbs = geometry.rows * geometry.columns
             get_geometry(window_w, window_h)
             local max_thumbs = geometry.rows * geometry.columns
-            if max_thumbs <= 0 then
+            if geometry.rows <= 0 or geometry.columns <= 0 then
                 quit_gallery_view(selection.old)
                 return
             elseif max_thumbs ~= old_max_thumbs then
@@ -536,9 +536,9 @@ function start_gallery_view()
     local old_max_thumbs = geometry.rows * geometry.columns
     get_geometry(mp.get_osd_size())
     local max_thumbs = geometry.rows * geometry.columns
-    if max_thumbs <= 0 then return end
+    if geometry.rows <= 0 or geometry.columns <= 0 then return end
     save_properties()
-    selection.old = mp.get_property_number("playlist-pos-1")
+    selection.old = mp.get_property_number("playlist-pos-1") or 1
     selection.now = selection.old
     save_and_clear_playlist()
     local selection_row = math.floor((selection.now - 1) / geometry.columns)
@@ -604,8 +604,12 @@ end)
 
 function auto_start_gallery(key, value)
     if mp.get_property_number("playlist-count") > 1 then
-        mp.unobserve_property(auto_start_gallery)
         start_gallery_view()
+        if active then
+            mp.unobserve_property(auto_start_gallery)
+        end
+    else
+        mp.unobserve_property(auto_start_gallery)
     end
 end
 

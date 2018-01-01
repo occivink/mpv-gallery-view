@@ -1,4 +1,4 @@
-Gallery-view script for [mpv](https://github.com/mpv-player/mpv). Shows thumbnails of entries in the plyalist in a grid view.
+Gallery-view script for [mpv](https://github.com/mpv-player/mpv). Shows thumbnails of entries in the playlist in a grid view. Works with images and videos alike.
 
 [![demo](https://i.vimeocdn.com/filter/overlay?src0=https%3A%2F%2Fi.vimeocdn.com%2Fvideo%2F674980468_1280x720.jpg&src1=https%3A%2F%2Ff.vimeocdn.com%2Fimages_v6%2Fshare%2Fplay_icon_overlay.png)](https://vimeo.com/249226823)
 
