@@ -15,7 +15,7 @@ local opts = {
     scrollbar_side = "left",
     scrollbar_min_size = 10,
 
-    auto_start_gallery = false,
+    start_gallery_on_file_end = true,
     max_generators = 64,
 
     UP        = "UP",
@@ -609,19 +609,12 @@ mp.register_script_message("gallery-thunbnails-generator-registered", function(g
     )
 end)
 
-function auto_start_gallery(key, value)
-    if mp.get_property_number("playlist-count") > 1 then
-        start_gallery_view()
-        if active then
-            mp.unobserve_property(auto_start_gallery)
+if opts.start_gallery_on_file_end then
+    mp.register_event("end-file", function()
+        if not active and mp.get_property_number("playlist-count") > 1 then
+            start_gallery_view()
         end
-    else
-        mp.unobserve_property(auto_start_gallery)
-    end
-end
-
-if opts.auto_start_gallery then
-    mp.observe_property("osd-width", "number", auto_start_gallery)
+    end)
 end
 
 mp.add_key_binding("g", "gallery-view", toggle_gallery)
