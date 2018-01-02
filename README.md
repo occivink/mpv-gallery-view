@@ -41,7 +41,6 @@ done
 
 * Add some kind of checkerboard pattern behind transparent thumbnails (ideally with an ffmpeg filter) (?).
 * Basic mouse support.
-* Remove entry from playlist and gallery.
 * Show filename under thumbnail.
 * Handle playlist with paths containing ".."
 

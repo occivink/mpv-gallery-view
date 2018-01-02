@@ -28,6 +28,7 @@ local opts = {
     LAST      = "END",
     ACCEPT    = "ENTER",
     CANCEL    = "ESC",
+    REMOVE    = "DEL",
 }
 (require 'mp.options').read_options(opts)
 opts.thumbs_dir = string.gsub(opts.thumbs_dir, "^~", os.getenv("HOME") or "~")
@@ -237,6 +238,7 @@ pending = {
     selection_increment = 0,
     mouse_moved = false,
     window_size_chaned = false,
+    deletion = false,
 }
 misc = {
     old_idle = "",
@@ -282,6 +284,7 @@ do
         bindings_repeat[opts.RIGHT]     = function() pending.selection_increment =   1 end
         bindings_repeat[opts.PAGE_UP]   = function() pending.selection_increment = - geometry.columns * geometry.rows end
         bindings_repeat[opts.PAGE_DOWN] = function() pending.selection_increment =   geometry.columns * geometry.rows end
+        bindings_repeat[opts.REMOVE]    = function() pending.deletion = true end
 
     local bindings = {}
         bindings[opts.FIRST]  = function() pending.selection_increment = -100000000 end
@@ -385,7 +388,7 @@ function idle_handler()
         if selection.now < view.first or selection.now > view.last then
             if selection.now < view.first then
                 view.first = math.floor((selection.now - 1) / geometry.columns) * geometry.columns + 1
-                view.last = view.first + max_thumbs - 1
+                view.last = math.min(view.first + max_thumbs - 1, #playlist)
             else
                 view.last = (math.floor((selection.now - 1) / geometry.columns) + 1) * geometry.columns
                 view.first = view.last - max_thumbs + 1
@@ -394,7 +397,7 @@ function idle_handler()
                     view.last = #playlist
                 end
             end
-            show_overlays()
+            show_overlays(1, view.last - view.first + 1)
         end
         show_selection_ass()
     end
@@ -413,8 +416,21 @@ function idle_handler()
                 remove_overlays(view.last - view.first + 2, old_max_thumbs)
             end
             show_selection_ass()
-            show_overlays()
+            show_overlays(1, view.last - view.first + 1)
         end
+    end
+    if pending.deletion then
+        pending.deletion = false
+        if #playlist < 2 then return end
+        table.remove(playlist, selection.now)
+        selection.old = math.min(selection.old, #playlist)
+        view.last = math.min(view.last, #playlist)
+        selection.now = math.min(selection.now, #playlist)
+        show_overlays(selection.now - view.first + 1, view.last - view.first + 1)
+        if view.last - view.first + 1 < geometry.rows * geometry.columns then
+            remove_overlay(view.last - view.first + 2)
+        end
+        show_selection_ass()
     end
 end
 
@@ -484,19 +500,20 @@ function remove_selection_ass()
     mp.set_osd_ass(1280, 720, "")
 end
 
-function show_overlays()
+-- 1-based indices
+function show_overlays(from, to)
     local todo = {}
     overlays.missing = {}
-    for i = 0, view.last - view.first do
-        local filename = playlist[view.first + i]
+    for i = from, to do
+        local filename = playlist[view.first + i - 1]
         local filename_hash = string.sub(sha256(filename), 1, 12)
         local thumb_filename = filename_hash .. "_" .. geometry.size_x .. "_" .. geometry.size_y
         local thumb_path = utils.join_path(opts.thumbs_dir, thumb_filename)
         if file_exists(thumb_path) then
-            show_overlay(i + 1, thumb_path)
+            show_overlay(i, thumb_path)
         else
-            remove_overlay(i + 1)
-            todo[#todo + 1] = { index = i + 1, path = filename, hash = filename_hash }
+            remove_overlay(i)
+            todo[#todo + 1] = { index = i, path = filename, hash = filename_hash }
         end
     end
     -- reverse iterate so that the first thumbnail is at the top of the stack
@@ -524,6 +541,7 @@ function show_overlay(index_1, thumb_path)
     mp.osd_message("", 0.01)
 end
 
+-- 1-based indices
 function remove_overlays(from, to)
     for i = to, from, -1 do
         remove_overlay(i)
@@ -563,7 +581,7 @@ function start_gallery_view()
     end
     setup_handlers()
     show_selection_ass()
-    show_overlays()
+    show_overlays(1, view.last - view.first + 1)
     active = true
 end
 
