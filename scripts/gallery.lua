@@ -15,7 +15,7 @@ local opts = {
     scrollbar_side = "left",
     scrollbar_min_size = 10,
 
-    start_gallery_on_file_end = true,
+    start_gallery_on_file_end = false,
     max_generators = 64,
 
     UP        = "UP",
