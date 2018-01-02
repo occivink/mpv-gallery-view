@@ -276,6 +276,27 @@ function file_exists(path)
     end
 end
 
+function select_under_cursor()
+    local g = geometry
+    local mx, my = mp.get_mouse_pos()
+    if mx < 0 or my < 0 or mx > g.window_w or my > g.window_h then return end
+    local mx, my = mx - g.margin_x, my - g.margin_y
+    local on_column = (mx % (g.size_x + g.margin_x)) < g.size_x
+    local on_row = (my % (g.size_y + g.margin_y)) < g.size_y
+    if on_column and on_row then
+        local column = math.floor(mx / (g.size_x + g.margin_x))
+        local row = math.floor(my / (g.size_y + g.margin_y))
+        local new_sel = view.first + row * g.columns + column
+        if new_sel > view.last then return end
+        if selection.now == new_sel then
+            quit_gallery_view(selection.now)
+        else
+            selection.now = new_sel
+            show_selection_ass()
+        end
+    end
+end
+
 do
     local bindings_repeat = {}
         bindings_repeat[opts.UP]        = function() pending.selection_increment = - geometry.columns end
@@ -291,6 +312,7 @@ do
         bindings[opts.LAST]   = function() pending.selection_increment =  100000000 end
         bindings[opts.ACCEPT] = function() quit_gallery_view(selection.now) end
         bindings[opts.CANCEL] = function() quit_gallery_view(selection.old) end
+        bindings["MBTN_LEFT"] = select_under_cursor
 
     local function window_size_changed()
         pending.window_size_changed = true
