@@ -376,7 +376,13 @@ function save_and_clear_playlist()
     playlist = {}
     local cwd = utils.getcwd()
     for _, f in ipairs(mp.get_property_native("playlist")) do
-        playlist[#playlist + 1]  = utils.join_path(cwd, string.gsub(f.filename, "^%./", ""))
+        local f = string.gsub(f.filename, "^%./", "")
+        f = utils.join_path(cwd, f)
+        local n
+        repeat
+            f, n = string.gsub(f, "/[^/]*/%.%.", "", 1)
+        until n == 0
+        playlist[#playlist + 1]  = f
     end
     mp.command("playlist-clear")
     mp.command("playlist-remove current")
