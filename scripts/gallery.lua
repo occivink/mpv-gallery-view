@@ -296,6 +296,24 @@ do
         pending.window_size_changed = true
     end
 
+    local function idle_handler()
+        if pending.selection_increment ~= 0 then
+            increment_selection(pending.selection_increment)
+            pending.selection_increment = 0
+        end
+        if pending.window_size_changed then
+            pending.window_size_chaned = false
+            local window_w, window_h = mp.get_osd_size()
+            if window_w ~= geometry.window_w or window_h ~= geometry.window_h then
+                resize_gallery(window_w, window_h)
+            end
+        end
+        if pending.deletion then
+            pending.deletion = false
+            remove_selected()
+        end
+    end
+
     function setup_handlers()
         for key, func in pairs(bindings_repeat) do
             mp.add_forced_key_binding(key, "gallery-view-"..key, func, {repeatable = true})
@@ -400,7 +418,7 @@ function increment_selection(inc)
     show_selection_ass()
 end
 
-function handle_window_size_changed(window_h, window_w)
+function resize_gallery(window_h, window_w)
     local old_max_thumbs = geometry.rows * geometry.columns
     get_geometry(window_w, window_h)
     local max_thumbs = geometry.rows * geometry.columns
@@ -415,7 +433,7 @@ function handle_window_size_changed(window_h, window_w)
     show_overlays(1, view.last - view.first + 1)
 end
 
-function handle_deletion()
+function remove_selected()
     if #playlist < 2 then return end
     table.remove(playlist, selection.now)
     selection.old = math.min(selection.old, #playlist)
@@ -429,24 +447,6 @@ function handle_deletion()
             remove_overlay(view.last - view.first + 2)
         end
         show_selection_ass()
-    end
-end
-
-function idle_handler()
-    if pending.selection_increment ~= 0 then
-        increment_selection(pending.selection_increment)
-        pending.selection_increment = 0
-    end
-    if pending.window_size_changed then
-        pending.window_size_chaned = false
-        local window_w, window_h = mp.get_osd_size()
-        if window_w ~= geometry.window_w or window_h ~= geometry.window_h then
-            handle_window_size_changed(window_w, window_h)
-        end
-    end
-    if pending.deletion then
-        pending.deletion = false
-        handle_deletion()
     end
 end
 
