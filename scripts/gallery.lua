@@ -380,57 +380,73 @@ function get_geometry(window_w, window_h)
     geometry.margin_y = (geometry.window_h - geometry.rows * geometry.size_y) / (geometry.rows + 1)
 end
 
-function idle_handler()
-    if pending.selection_increment ~= 0 then
-        selection.now = math.max(1, math.min(selection.now + pending.selection_increment, #playlist))
-        pending.selection_increment = 0
-        max_thumbs = geometry.rows * geometry.columns
-        if selection.now < view.first or selection.now > view.last then
-            if selection.now < view.first then
-                view.first = math.floor((selection.now - 1) / geometry.columns) * geometry.columns + 1
-                view.last = math.min(view.first + max_thumbs - 1, #playlist)
-            else
-                view.last = (math.floor((selection.now - 1) / geometry.columns) + 1) * geometry.columns
-                view.first = view.last - max_thumbs + 1
-                if view.last > #playlist then
-                    remove_overlays(max_thumbs - (view.last - #playlist) + 1, max_thumbs)
-                    view.last = #playlist
-                end
+function increment_selection(inc)
+    selection.now = math.max(1, math.min(selection.now + pending.selection_increment, #playlist))
+    max_thumbs = geometry.rows * geometry.columns
+    if selection.now < view.first or selection.now > view.last then
+        if selection.now < view.first then
+            view.first = math.floor((selection.now - 1) / geometry.columns) * geometry.columns + 1
+            view.last = math.min(view.first + max_thumbs - 1, #playlist)
+        else
+            view.last = (math.floor((selection.now - 1) / geometry.columns) + 1) * geometry.columns
+            view.first = view.last - max_thumbs + 1
+            if view.last > #playlist then
+                remove_overlays(max_thumbs - (view.last - #playlist) + 1, max_thumbs)
+                view.last = #playlist
             end
-            show_overlays(1, view.last - view.first + 1)
         end
-        show_selection_ass()
+        show_overlays(1, view.last - view.first + 1)
     end
-    if pending.window_size_changed then
-        pending.window_size_chaned = false
-        local window_w, window_h = mp.get_osd_size()
-        if window_w ~= geometry.window_w or window_h ~= geometry.window_h then
-            local old_max_thumbs = geometry.rows * geometry.columns
-            get_geometry(window_w, window_h)
-            local max_thumbs = geometry.rows * geometry.columns
-            if geometry.rows <= 0 or geometry.columns <= 0 then
-                quit_gallery_view(selection.old)
-                return
-            elseif max_thumbs ~= old_max_thumbs then
-                center_view_on_selection()
-                remove_overlays(view.last - view.first + 2, old_max_thumbs)
-            end
-            show_selection_ass()
-            show_overlays(1, view.last - view.first + 1)
-        end
+    show_selection_ass()
+end
+
+function handle_window_size_changed(window_h, window_w)
+    local old_max_thumbs = geometry.rows * geometry.columns
+    get_geometry(window_w, window_h)
+    local max_thumbs = geometry.rows * geometry.columns
+    if geometry.rows <= 0 or geometry.columns <= 0 then
+        quit_gallery_view(selection.old)
+        return
+    elseif max_thumbs ~= old_max_thumbs then
+        center_view_on_selection()
+        remove_overlays(view.last - view.first + 2, old_max_thumbs)
     end
-    if pending.deletion then
-        pending.deletion = false
-        if #playlist < 2 then return end
-        table.remove(playlist, selection.now)
-        selection.old = math.min(selection.old, #playlist)
-        view.last = math.min(view.last, #playlist)
-        selection.now = math.min(selection.now, #playlist)
+    show_selection_ass()
+    show_overlays(1, view.last - view.first + 1)
+end
+
+function handle_deletion()
+    if #playlist < 2 then return end
+    table.remove(playlist, selection.now)
+    selection.old = math.min(selection.old, #playlist)
+    view.last = math.min(view.last, #playlist)
+    if selection.now > #playlist then
+        remove_overlay(selection.now - view.first + 1)
+        increment_selection(-1)
+    else
         show_overlays(selection.now - view.first + 1, view.last - view.first + 1)
         if view.last - view.first + 1 < geometry.rows * geometry.columns then
             remove_overlay(view.last - view.first + 2)
         end
         show_selection_ass()
+    end
+end
+
+function idle_handler()
+    if pending.selection_increment ~= 0 then
+        increment_selection(pending.selection_increment)
+        pending.selection_increment = 0
+    end
+    if pending.window_size_changed then
+        pending.window_size_chaned = false
+        local window_w, window_h = mp.get_osd_size()
+        if window_w ~= geometry.window_w or window_h ~= geometry.window_h then
+            handle_window_size_changed(window_w, window_h)
+        end
+    end
+    if pending.deletion then
+        pending.deletion = false
+        handle_deletion()
     end
 end
 
