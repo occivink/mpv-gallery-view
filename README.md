@@ -40,7 +40,6 @@ done
 # TODO
 
 * Add some kind of checkerboard pattern behind transparent thumbnails (ideally with an ffmpeg filter) (?).
-* Basic mouse support.
 * Show filename under thumbnail.
 * Handle playlist with paths containing ".."
 

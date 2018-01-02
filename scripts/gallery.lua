@@ -15,6 +15,7 @@ local opts = {
     scrollbar_side = "left",
     scrollbar_min_size = 10,
 
+    mouse_support = true,
     start_gallery_on_file_end = false,
     max_generators = 64,
 
@@ -312,7 +313,11 @@ do
         bindings[opts.LAST]   = function() pending.selection_increment =  100000000 end
         bindings[opts.ACCEPT] = function() quit_gallery_view(selection.now) end
         bindings[opts.CANCEL] = function() quit_gallery_view(selection.old) end
-        bindings["MBTN_LEFT"] = select_under_cursor
+    if opts.mouse_support then
+        bindings["MBTN_LEFT"]  = select_under_cursor
+        bindings["WHEEL_UP"]   = function() pending.selection_increment = - geometry.columns end
+        bindings["WHEEL_DOWN"] = function() pending.selection_increment =   geometry.columns end
+    end
 
     local function window_size_changed()
         pending.window_size_changed = true
