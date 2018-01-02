@@ -380,7 +380,7 @@ function save_and_clear_playlist()
         f = utils.join_path(cwd, f)
         local n
         repeat
-            f, n = string.gsub(f, "/[^/]*/%.%.", "", 1)
+            f, n = string.gsub(f, "/[^/]*/%.%./", "/", 1)
         until n == 0
         playlist[#playlist + 1]  = f
     end
