@@ -610,6 +610,7 @@ end
 
 function start_gallery_view()
     init()
+    if mp.get_property_number("playlist-count") == 0 then return end
     local old_max_thumbs = geometry.rows * geometry.columns
     get_geometry(mp.get_osd_size())
     local max_thumbs = geometry.rows * geometry.columns
