@@ -439,15 +439,12 @@ function remove_selected()
     selection.old = math.min(selection.old, #playlist)
     view.last = math.min(view.last, #playlist)
     if selection.now > #playlist then
-        remove_overlay(selection.now - view.first + 1)
         increment_selection(-1)
     else
         show_overlays(selection.now - view.first + 1, view.last - view.first + 1)
-        if view.last - view.first + 1 < geometry.rows * geometry.columns then
-            remove_overlay(view.last - view.first + 2)
-        end
         show_selection_ass()
     end
+    remove_overlay(view.last - view.first + 2)
 end
 
 function center_view_on_selection()
