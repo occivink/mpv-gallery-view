@@ -613,14 +613,15 @@ function start_gallery_view()
     if mp.get_property_number("playlist-count") == 0 then return end
     local old_max_thumbs = geometry.rows * geometry.columns
     get_geometry(mp.get_osd_size())
-    local max_thumbs = geometry.rows * geometry.columns
     if geometry.rows <= 0 or geometry.columns <= 0 then return end
     save_properties()
-    selection.old = mp.get_property_number("playlist-pos-1") or 1
+    selection.old = mp.get_property_number("playlist-pos-1")
     selection.now = selection.old
+    local old_playlist_size = #playlist
+    local max_thumbs = geometry.rows * geometry.columns
     save_and_clear_playlist()
     local selection_row = math.floor((selection.now - 1) / geometry.columns)
-    if max_thumbs ~= old_max_thumbs or view.last > #playlist then
+    if max_thumbs ~= old_max_thumbs or old_playlist_size ~= #playlist then
         center_view_on_selection()
     elseif selection.now < view.first then
         -- the selection is now on the first line
