@@ -296,6 +296,10 @@ do
         pending.window_size_changed = true
     end
 
+    local function file_started()
+        quit_gallery_view(nil)
+    end
+
     local function idle_handler()
         if pending.selection_increment ~= 0 then
             increment_selection(pending.selection_increment)
@@ -325,6 +329,7 @@ do
             mp.observe_property(prop, bool, window_size_changed)
         end
         mp.register_idle(idle_handler)
+        mp.register_event("start-file", file_started)
     end
 
     function teardown_handlers()
@@ -336,6 +341,7 @@ do
         end
         mp.unobserve_property(window_size_changed)
         mp.unregister_idle(idle_handler)
+        mp.unregister_event(file_started)
     end
 end
 
@@ -580,7 +586,7 @@ function start_gallery_view()
     selection.now = selection.old
     save_and_clear_playlist()
     local selection_row = math.floor((selection.now - 1) / geometry.columns)
-    if max_thumbs ~= old_max_thumbs then
+    if max_thumbs ~= old_max_thumbs or view.last > #playlist then
         center_view_on_selection()
     elseif selection.now < view.first then
         -- the selection is now on the first line
@@ -602,7 +608,9 @@ function quit_gallery_view(select)
     teardown_handlers()
     remove_overlays(1, view.last - view.first + 1)
     remove_selection_ass()
-    restore_playlist_and_select(select)
+    if select then
+        restore_playlist_and_select(select)
+    end
     restore_properties()
     active = false
 end
