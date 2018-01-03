@@ -9,6 +9,7 @@ local opts = {
 
     thumbnail_width = 192,
     thumbnail_height = 108,
+    take_thumbnail_at = 20,
 
     margin = 20,
     scrollbar = true,
@@ -237,7 +238,6 @@ selection = {
 }
 pending = {
     selection_increment = 0,
-    mouse_moved = false,
     window_size_chaned = false,
     deletion = false,
 }
@@ -679,6 +679,7 @@ mp.register_script_message("gallery-thunbnails-generator-registered", function(g
         opts.thumbs_dir,
         tostring(opts.thumbnail_width),
         tostring(opts.thumbnail_height),
+        tostring(opts.take_thumbnail_at),
         tostring(opts.generate_thumbnails_with_mpv)
     )
 end)

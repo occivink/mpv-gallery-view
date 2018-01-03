@@ -6,6 +6,7 @@ local globals = {
     thumbs_dir = "",
     thumbnail_width = 0,
     thumbnail_height = 0,
+    take_thumbnail_at = 0,
     generate_thumbnails_with_mpv = false,
     tmp_path = "", -- temporary name for generated thumbnails
 }
@@ -23,21 +24,41 @@ function file_exists(path)
     end
 end
 
+function is_video(input_path)
+    local extension = string.match(input_path, "%.([^.]+)$")
+    if extension then
+        extension = string.lower(extension)
+        if extension == "mkv" or extension == "webm" or extension == "mp4" or extension == "avi" then
+            return true
+        end
+    end
+    return false
+end
+
 function thumbnail_command(input_path)
     local h, w = globals.thumbnail_height, globals.thumbnail_width
     local scale = string.format("scale=iw*min(1\\,min(%d/iw\\,%d/ih)):-2", w, h)
     local pad = string.format("pad=%d:%d:(%d-iw)/2:(%d-ih)/2:color=0x00000000", w, h, w, h)
     local vf = string.format("%s,%s", scale, pad)
-    local extension = string.match(input_path, "%.([^.]+)$")
-    if extension then
-        extension = string.lower(extension)
-        if extension == "mkv" or extension == "webm" or extension == "mp4" or extension == "avi" then
-            vf = "thumbnail," .. vf
-        end
-    end
+    local video = is_video(input_path)
+    local start = "0"
     if not globals.generate_thumbnails_with_mpv then
+        if video then
+            --if only fucking ffmpeg supported percent-style seeking
+            local res = utils.subprocess({cancellable = false, args = {
+                "ffprobe", "-v", "error",
+                "-show_entries", "format=duration", "-of",
+                "default=noprint_wrappers=1:nokey=1", input_path
+            }})
+            if res.status == 0 then
+                local duration = tonumber(string.match(res.stdout, "^%s*(.-)%s*$"))
+                start = tostring(duration * globals.take_thumbnail_at / 100)
+            end
+        end
         return {
             "ffmpeg",
+            "-ss", start,
+            "-noaccurate_seek",
             "-i", input_path,
             "-vf", vf,
             "-map", "v:0", "-f", "rawvideo", "-pix_fmt", "bgra", "-c:v", "rawvideo",
@@ -46,12 +67,15 @@ function thumbnail_command(input_path)
             globals.tmp_path
         }
     else
-        vf = "lavfi=[" .. vf .. ",format=bgra]"
+        if video then
+            start = globals.take_thumbnail_at .. "%"
+        end
         return {
             "mpv",
             input_path,
             "--no-config", "--msg-level=all=no",
-            "--vf", vf,
+            "--start", start,
+            "--vf", "lavfi=[" .. vf .. ",format=bgra]",
             "--audio", "no",
             "--sub", "no",
             "--frames", "1",
@@ -61,12 +85,16 @@ function thumbnail_command(input_path)
     end
 end
 
-function init_thumbnails_generator(main_script_name, thumbs_dir, thumbnail_width, tumbnail_height, generate_thumbnails_with_mpv)
+function init_thumbnails_generator(main_script_name, thumbs_dir,
+    thumbnail_width, tumbnail_height, take_thumbnail_at,
+    generate_thumbnails_with_mpv
+)
     globals.registered = true
     globals.main_script_name = main_script_name
     globals.thumbs_dir = thumbs_dir
     globals.thumbnail_width = tonumber(thumbnail_width)
     globals.thumbnail_height = tonumber(tumbnail_height)
+    globals.take_thumbnail_at = tonumber(take_thumbnail_at)
     globals.generate_thumbnails_with_mpv = (generate_thumbnails_with_mpv == "true")
     globals.tmp_path = utils.join_path(globals.thumbs_dir, mp.get_script_name())
 end
@@ -109,7 +137,7 @@ function handle_events_full(wait)
         if e.event == "shutdown" then
             return false
         elseif e.event == "client-message" and e.args[1] == "init-thumbnails-generator" then
-            init_thumbnails_generator(e.args[2], e.args[3], e.args[4], e.args[5], e.args[6])
+            init_thumbnails_generator(e.args[2], e.args[3], e.args[4], e.args[5], e.args[6], e.args[7])
             return true
         end
         e = mp.wait_event(start_time + wait - mp.get_time())
