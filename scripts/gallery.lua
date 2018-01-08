@@ -12,9 +12,12 @@ local opts = {
     take_thumbnail_at = 20,
 
     margin = 20,
-    scrollbar = true,
+    show_scrollbar = true,
     scrollbar_side = "left",
     scrollbar_min_size = 10,
+
+    show_placeholders = true,
+    placeholder_color = "222222",
 
     mouse_support = true,
     start_gallery_on_file_end = false,
@@ -241,6 +244,11 @@ pending = {
     window_size_chaned = false,
     deletion = false,
 }
+ass = {
+    selection = "",
+    scrollbar = "",
+    placeholders = {},
+}
 misc = {
     old_idle = "",
     old_force_window = "",
@@ -293,7 +301,8 @@ function select_under_cursor()
             quit_gallery_view(selection.now)
         else
             selection.now = new_sel
-            show_selection_ass()
+            ass_selection()
+            ass_show()
         end
     end
 end
@@ -454,7 +463,9 @@ function increment_selection(inc)
         end
         show_overlays(1, view.last - view.first + 1)
     end
-    show_selection_ass()
+    ass_selection()
+    ass_scrollbar()
+    ass_show()
 end
 
 function resize_gallery(window_w, window_h)
@@ -468,8 +479,10 @@ function resize_gallery(window_w, window_h)
         center_view_on_selection()
         remove_overlays(view.last - view.first + 2, old_max_thumbs)
     end
-    show_selection_ass()
+    ass_scrollbar()
+    ass_selection()
     show_overlays(1, view.last - view.first + 1)
+    ass_show()
 end
 
 function remove_selected()
@@ -481,7 +494,8 @@ function remove_selected()
         increment_selection(-1)
     else
         show_overlays(selection.now - view.first + 1, view.last - view.first + 1)
-        show_selection_ass()
+        ass_scrollbar()
+        ass_show()
     end
     remove_overlay(view.last - view.first + 2)
 end
@@ -496,65 +510,100 @@ function center_view_on_selection()
     end
 end
 
-function show_selection_ass()
-    -- TODO refactor
-    local ass = assdraw.ass_new()
-    ass:new_event()
-    ass:append('{\\bord6}')
-    ass:append('{\\3c&DDDDDD&}')
-    ass:append('{\\1a&FF&}')
-    ass:pos(0, 0)
-    ass:draw_start()
-    local s, g, v = selection, geometry, view
-    local i = s.now - v.first
-    local x = g.margin_x + (g.margin_x + g.size_x) * (i % g.columns)
-    local y = g.margin_y + (g.margin_y + g.size_y) * math.floor(i / g.columns)
-    ass:round_rect_cw(x + 1, y + 1, x + g.size_x - 1, y + g.size_y - 1, 2)
-    ass:draw_stop()
-    if opts.scrollbar then
-        local before = (v.first - 1) / #playlist
-        local after = (#playlist - v.last) / #playlist
-        if before + after > 0 then
-            local p = opts.scrollbar_min_size / 100
-            if before + after > 1 - p then
-                if before == 0 then
-                    after = (1 - p)
-                elseif after == 0 then
-                    before = (1 - p)
-                else
-                    before, after =
-                        before / after * (1 - p) / (1 + before / after),
-                        after / before * (1 - p) / (1 + after / before)
-                end
-            end
-            local y1 = g.margin_y + before * (g.window_h - 2 * g.margin_y)
-            local y2 = g.window_h - (g.margin_y + after * (g.window_h - 2 * g.margin_y))
-            local x1, x2
-            if opts.scrollbar_side == "left" then
-                x1, x2 = 3, 7
-            else
-                x1, x2 = g.window_w - 7, g.window_w - 3
-            end
-            ass:new_event()
-            ass:append('{\\bord0}')
-            ass:append('{\\shad0}')
-            ass:append('{\\1c&AAAAAA&}')
-            ass:pos(0, 0)
-            ass:draw_start()
-            ass:round_rect_cw(x1, y1, x2, y2, 2)
-            ass:draw_stop()
-        end
+function ass_add_placeholder(index_1)
+    if not opts.show_placeholders then
+        ass.placeholders[index_1] = ""
+        return
     end
-    mp.set_osd_ass(geometry.window_w, geometry.window_h, ass.text)
+    local i = index_1 - 1
+    local x = geometry.margin_x + (geometry.margin_x + geometry.size_x) * (i % geometry.columns)
+    local y = geometry.margin_y + (geometry.margin_y + geometry.size_y) * math.floor(i / geometry.columns)
+    local box = assdraw.ass_new()
+    box:new_event()
+    box:append('{\\bord0}')
+    box:append('{\\shad0}')
+    box:append('{\\1c&' .. opts.placeholder_color .. '}')
+    box:pos(0, 0)
+    box:draw_start()
+    box:rect_cw(x, y, x + geometry.size_x, y + geometry.size_y)
+    box:draw_stop()
+    ass.placeholders[index_1] = box.text
 end
 
-function remove_selection_ass()
+function ass_scrollbar()
+    ass.scrollbar = ""
+    if not opts.show_scrollbar then return end
+    local before = (view.first - 1) / #playlist
+    local after = (#playlist - view.last) / #playlist
+    -- don't show the scrollbar if everything is visible
+    if before + after == 0 then return end
+    local p = opts.scrollbar_min_size / 100
+    if before + after > 1 - p then
+        if before == 0 then
+            after = (1 - p)
+        elseif after == 0 then
+            before = (1 - p)
+        else
+            before, after =
+                before / after * (1 - p) / (1 + before / after),
+                after / before * (1 - p) / (1 + after / before)
+        end
+    end
+    local y1 = geometry.margin_y + before * (geometry.window_h - 2 * geometry.margin_y)
+    local y2 = geometry.window_h - (geometry.margin_y + after * (geometry.window_h - 2 * geometry.margin_y))
+    local x1, x2
+    if opts.scrollbar_side == "left" then
+        x1, x2 = 3, 7
+    else
+        x1, x2 = geometry.window_w - 7, geometry.window_w - 3
+    end
+    local scrollbar = assdraw.ass_new()
+    scrollbar:new_event()
+    scrollbar:append('{\\bord0}')
+    scrollbar:append('{\\shad0}')
+    scrollbar:append('{\\1c&AAAAAA&}')
+    scrollbar:pos(0, 0)
+    scrollbar:draw_start()
+    scrollbar:round_rect_cw(x1, y1, x2, y2, 2)
+    scrollbar:draw_stop()
+    ass.scrollbar = scrollbar.text
+end
+
+function ass_selection()
+    local i = selection.now - view.first
+    local x = geometry.margin_x + (geometry.margin_x + geometry.size_x) * (i % geometry.columns)
+    local y = geometry.margin_y + (geometry.margin_y + geometry.size_y) * math.floor(i / geometry.columns)
+    local box = assdraw.ass_new()
+    box:new_event()
+    box:append('{\\bord6}')
+    box:append('{\\3c&DDDDDD&}')
+    box:append('{\\1a&FF&}')
+    box:pos(0, 0)
+    box:draw_start()
+    box:round_rect_cw(x + 1, y + 1, x + geometry.size_x - 1, y + geometry.size_y - 1, 2)
+    box:draw_stop()
+    ass.selection = box.text
+end
+
+function ass_show()
+    local merge = function(a, b)
+        return b ~= "" and (a .. "\n" .. b) or a
+    end
+    local a = merge(ass.selection, ass.scrollbar)
+    for _, v in ipairs(ass.placeholders) do
+        a = merge(a, v)
+    end
+    mp.set_osd_ass(geometry.window_w, geometry.window_h, a)
+end
+
+function ass_hide()
     mp.set_osd_ass(1280, 720, "")
 end
 
 -- 1-based indices
 function show_overlays(from, to)
     local todo = {}
+    ass.placeholders = {}
     overlays.missing = {}
     for i = from, to do
         local filename = playlist[view.first + i - 1]
@@ -562,9 +611,11 @@ function show_overlays(from, to)
         local thumb_filename = filename_hash .. "_" .. geometry.size_x .. "_" .. geometry.size_y
         local thumb_path = utils.join_path(opts.thumbs_dir, thumb_filename)
         if file_exists(thumb_path) then
+            ass.placeholders[i] = ""
             show_overlay(i, thumb_path)
         else
             remove_overlay(i)
+            ass_add_placeholder(i)
             todo[#todo + 1] = { index = i, path = filename, hash = filename_hash }
         end
     end
@@ -634,15 +685,17 @@ function start_gallery_view()
         view.last = math.min(#playlist, view.last)
     end
     setup_handlers()
-    show_selection_ass()
+    ass_selection()
+    ass_scrollbar()
     show_overlays(1, view.last - view.first + 1)
+    ass_show()
     active = true
 end
 
 function quit_gallery_view(select)
     teardown_handlers()
     remove_overlays(1, view.last - view.first + 1)
-    remove_selection_ass()
+    ass_hide()
     if select then
         restore_playlist_and_select(select)
     end
@@ -664,6 +717,8 @@ mp.register_script_message("thumbnail-generated", function(hash)
     if missing == nil then return end
     local thumb_filename = hash .. "_" .. geometry.size_x .. "_" .. geometry.size_y
     local thumb_path = utils.join_path(opts.thumbs_dir, thumb_filename)
+    ass.placeholders[missing] = ""
+    ass_show()
     show_overlay(missing, thumb_path)
     overlays.missing[hash] = nil
 end)
