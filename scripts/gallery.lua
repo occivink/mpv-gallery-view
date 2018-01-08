@@ -21,7 +21,7 @@ local opts = {
 
     mouse_support = true,
     start_gallery_on_file_end = false,
-    max_generators = 64,
+    max_generators = 8,
 
     UP        = "UP",
     DOWN      = "DOWN",
