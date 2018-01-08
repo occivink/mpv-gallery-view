@@ -114,33 +114,21 @@ function generate_thumbnail(input_path, hash)
     return false
 end
 
--- shitty custom event loop because I can't figure out a better way
--- works pretty well though
-function handle_events(wait)
-    e = mp.wait_event(wait)
-    while e.event ~= "none" do
-        if e.event == "shutdown" then
-            return false
-        elseif e.event == "client-message" and e.args[1] == "push-thumbnail-to-stack" then
-            thumbnail_stack[#thumbnail_stack + 1] = { path = e.args[2], hash = e.args[3] }
-        end
-        e = mp.wait_event(0)
-    end 
-    return true
-end
-
--- wait the full duration specified by "wait"
-function handle_events_full(wait)
+function handle_events(wait, full)
     local start_time = mp.get_time()
     e = mp.wait_event(wait)
     while e.event ~= "none" do
         if e.event == "shutdown" then
             return false
-        elseif e.event == "client-message" and e.args[1] == "init-thumbnails-generator" then
-            init_thumbnails_generator(e.args[2], e.args[3], e.args[4], e.args[5], e.args[6], e.args[7])
-            return true
+        elseif e.event == "client-message" then
+            if e.args[1] == "push-thumbnail-to-stack" then
+                thumbnail_stack[#thumbnail_stack + 1] = { path = e.args[2], hash = e.args[3] }
+            elseif e.args[1] == "init-thumbnails-generator" then
+                init_thumbnails_generator(e.args[2], e.args[3], e.args[4], e.args[5], e.args[6], e.args[7])
+                return true
+            end
         end
-        e = mp.wait_event(start_time + wait - mp.get_time())
+        e = mp.wait_event(full and (start_time + wait - mp.get_time()) or 0)
     end
     return true
 end
@@ -148,12 +136,14 @@ end
 local registration_timeout = 3 -- seconds
 local registration_period = 0.1
 
+-- shitty custom event loop because I can't figure out a better way
+-- works pretty well though
 function mp_event_loop()
     local start_time = mp.get_time()
     while not globals.registered do
         if mp.get_time() > start_time + registration_timeout then return end
         mp.commandv("script-message", "gallery-thunbnails-generator-registered", mp.get_script_name())
-        if not handle_events_full(registration_period) then return end
+        if not handle_events(registration_period, true) then return end
     end
     while true do
         if not handle_events(1e20) then return end
