@@ -307,6 +307,7 @@ function increment_selection(inc)
 end
 
 function resize_gallery(window_w, window_h)
+    ass_hide()
     local old_max_thumbs = geometry.rows * geometry.columns
     get_geometry(window_w, window_h)
     local max_thumbs = geometry.rows * geometry.columns
