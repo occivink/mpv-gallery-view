@@ -11,7 +11,9 @@ local opts = {
     thumbnail_height = 108,
     take_thumbnail_at = 20,
 
-    margin = 20,
+    margin_x = 15,
+    margin_y = 15,
+
     show_scrollbar = true,
     scrollbar_side = "left",
     scrollbar_min_size = 10,
@@ -266,12 +268,12 @@ function save_properties()
 end
 
 function get_geometry(window_w, window_h)
-    local margin = opts.show_filename and math.max(opts.text_size, opts.margin) or opts.margin
+    local margin_y = opts.show_filename and math.max(opts.text_size, opts.margin_y) or opts.margin_y
     geometry.window_w, geometry.window_h = window_w, window_h
     geometry.size_x = opts.thumbnail_width
     geometry.size_y = opts.thumbnail_height
-    geometry.rows = math.floor((geometry.window_h - margin) / (geometry.size_y + margin))
-    geometry.columns = math.floor((geometry.window_w - margin) / (geometry.size_x + margin))
+    geometry.rows = math.floor((geometry.window_h - margin_y) / (geometry.size_y + margin_y))
+    geometry.columns = math.floor((geometry.window_w - opts.margin_x) / (geometry.size_x + opts.margin_x))
     if (geometry.rows * geometry.columns > 64) then
         if (geometry.rows > 8 and geometry.columns > 8) then
             geometry.rows = 8
