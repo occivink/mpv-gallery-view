@@ -19,6 +19,11 @@ local opts = {
     show_placeholders = true,
     placeholder_color = "222222",
 
+    show_filename = true,
+    strip_directory = true,
+    strip_extension = true,
+    text_size = 28,
+
     mouse_support = true,
     start_gallery_on_file_end = false,
     max_generators = 8,
@@ -278,6 +283,9 @@ function get_geometry(window_w, window_h)
     end
     geometry.margin_x = (geometry.window_w - geometry.columns * geometry.size_x) / (geometry.columns + 1)
     geometry.margin_y = (geometry.window_h - geometry.rows * geometry.size_y) / (geometry.rows + 1)
+    if opts.show_filename and opts.text_size > geometry.margin_y then
+        geometry.margin_y = opts.text_size
+    end
 end
 
 function increment_selection(inc)
@@ -401,7 +409,8 @@ do
 
     local function refresh_selection()
         local i = selection.now - view.first
-        local x = geometry.margin_x + (geometry.margin_x + geometry.size_x) * (i % geometry.columns)
+        local col = (i % geometry.columns)
+        local x = geometry.margin_x + (geometry.margin_x + geometry.size_x) * col
         local y = geometry.margin_y + (geometry.margin_y + geometry.size_y) * math.floor(i / geometry.columns)
         local box = assdraw.ass_new()
         box:new_event()
@@ -412,6 +421,31 @@ do
         box:draw_start()
         box:round_rect_cw(x + 1, y + 1, x + geometry.size_x - 1, y + geometry.size_y - 1, 2)
         box:draw_stop()
+        if opts.show_filename then
+            box:new_event()
+            local an = 5
+            y = y + geometry.size_y + geometry.margin_y / 2
+            if col == 0 then
+                an = 4
+            elseif col == geometry.columns - 1 then
+                x = x + geometry.size_x
+                an = 6
+            else
+                x = x + geometry.size_x / 2
+            end
+            box:an(an)
+            box:pos(x, y)
+            box:append(string.format("{\\fs%d}", opts.text_size))
+            box:append("{\\bord0}")
+            local f = playlist[selection.now]
+            if opts.strip_directory then
+                f = string.match(f, "([^/]+)$")
+            end
+            if opts.strip_extension then
+                f = string.match(f, "(.+)%.[^.]+$") or f
+            end
+            box:append(f)
+        end
         ass.selection = box.text
     end
 
