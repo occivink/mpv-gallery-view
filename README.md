@@ -41,7 +41,6 @@ done
 # TODO
 
 * Add some kind of checkerboard pattern behind transparent thumbnails (ideally with an ffmpeg filter) (?).
-* Resume video position when entering/leaving the gallery
 
 # Limitations
 

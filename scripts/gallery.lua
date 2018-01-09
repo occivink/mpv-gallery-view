@@ -11,6 +11,9 @@ local opts = {
     thumbnail_height = 108,
     take_thumbnail_at = 20,
 
+    resume_when_picking = true,
+    start_gallery_on_file_end = false,
+
     margin_x = 15,
     margin_y = 15,
 
@@ -26,10 +29,9 @@ local opts = {
     strip_extension = true,
     text_size = 28,
 
-    mouse_support = true,
-    start_gallery_on_file_end = false,
     max_generators = 8,
 
+    mouse_support = true,
     UP        = "UP",
     DOWN      = "DOWN",
     LEFT      = "LEFT",
@@ -91,6 +93,7 @@ ass = {
     scrollbar = "",
     placeholders = "",
 }
+resume = {} -- maps filename to the time-pos it was at when starting the gallery
 misc = {
     old_idle = "",
     old_force_window = "",
@@ -234,12 +237,27 @@ function save_and_clear_playlist()
         until n == 0
         playlist[#playlist + 1]  = f
     end
+    if opts.resume_when_picking then
+        resume[playlist[mp.get_property_number("playlist-pos-1")]] = mp.get_property_number("time-pos")
+    end
     mp.command("playlist-clear")
     mp.command("playlist-remove current")
 end
 
 function restore_playlist_and_select(select)
     mp.commandv("loadfile", playlist[select], "replace")
+    if opts.resume_when_picking then
+        local time = resume[playlist[select]]
+        if time then
+            local tmp
+            local func = function()
+                mp.commandv("seek", time, "absolute")
+                mp.unregister_event(tmp)
+            end
+            tmp = func
+            mp.register_event("file-loaded", func)
+        end
+    end
     for i = 1, select - 1 do
         mp.commandv("loadfile", playlist[i], "append")
     end
