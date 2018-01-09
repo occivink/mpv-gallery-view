@@ -266,11 +266,12 @@ function save_properties()
 end
 
 function get_geometry(window_w, window_h)
+    local margin = opts.show_filename and math.max(opts.text_size, opts.margin) or opts.margin
     geometry.window_w, geometry.window_h = window_w, window_h
     geometry.size_x = opts.thumbnail_width
     geometry.size_y = opts.thumbnail_height
-    geometry.rows = math.floor((geometry.window_h - opts.margin) / (geometry.size_y + opts.margin))
-    geometry.columns = math.floor((geometry.window_w - opts.margin) / (geometry.size_x + opts.margin))
+    geometry.rows = math.floor((geometry.window_h - margin) / (geometry.size_y + margin))
+    geometry.columns = math.floor((geometry.window_w - margin) / (geometry.size_x + margin))
     if (geometry.rows * geometry.columns > 64) then
         if (geometry.rows > 8 and geometry.columns > 8) then
             geometry.rows = 8
@@ -283,9 +284,6 @@ function get_geometry(window_w, window_h)
     end
     geometry.margin_x = (geometry.window_w - geometry.columns * geometry.size_x) / (geometry.columns + 1)
     geometry.margin_y = (geometry.window_h - geometry.rows * geometry.size_y) / (geometry.rows + 1)
-    if opts.show_filename and opts.text_size > geometry.margin_y then
-        geometry.margin_y = opts.text_size
-    end
 end
 
 function increment_selection(inc)
