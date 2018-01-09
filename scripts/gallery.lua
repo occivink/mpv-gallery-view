@@ -390,6 +390,7 @@ do
 
     local function refresh_scrollbar()
         if not opts.show_scrollbar then return end
+        ass.scrollbar = ""
         local before = (view.first - 1) / #playlist
         local after = (#playlist - view.last) / #playlist
         -- don't show the scrollbar if everything is visible
@@ -410,9 +411,9 @@ do
         local y2 = geometry.window_h - (geometry.margin_y + after * (geometry.window_h - 2 * geometry.margin_y))
         local x1, x2
         if opts.scrollbar_side == "left" then
-            x1, x2 = 3, 7
+            x1, x2 = 4, 8
         else
-            x1, x2 = geometry.window_w - 7, geometry.window_w - 3
+            x1, x2 = geometry.window_w - 8, geometry.window_w - 4
         end
         local scrollbar = assdraw.ass_new()
         scrollbar:new_event()
