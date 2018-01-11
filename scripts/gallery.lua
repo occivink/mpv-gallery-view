@@ -5,7 +5,7 @@ local assdraw = require 'mp.assdraw'
 local on_windows = (package.config:sub(1,1) ~= "/")
 
 local opts = {
-    thumbs_dir = "~/.mpv_thumbs_dir",
+    thumbs_dir = on_windows and "%APPDATA%\\mpv\\gallery-thumbs-dir" or "~/.mpv_thumbs_dir/",
     auto_generate_thumbnails = true,
     generate_thumbnails_with_mpv = false,
 
@@ -49,7 +49,9 @@ local opts = {
 }
 (require 'mp.options').read_options(opts)
 
-if not on_windows then
+if on_windows then
+    opts.thumbs_dir = string.gsub(opts.thumbs_dir, "^%%APPDATA%%", os.getenv("APPDATA") or "%APPDATA%")
+else
     opts.thumbs_dir = string.gsub(opts.thumbs_dir, "^~", os.getenv("HOME") or "~")
 end
 
