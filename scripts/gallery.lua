@@ -25,6 +25,7 @@ local opts = {
 
     show_placeholders = true,
     placeholder_color = "222222",
+    always_show_placeholders = false,
 
     show_filename = true,
     strip_directory = true,
@@ -387,7 +388,7 @@ do
         a:pos(0, 0)
         a:draw_start()
         for i = 0, view.last - view.first do
-            if not overlays.active[i + 1] then
+            if opts.always_show_placeholders or (not overlays.active[i + 1]) then
                 local x = geometry.margin_x + (geometry.margin_x + geometry.size_x) * (i % geometry.columns)
                 local y = geometry.margin_y + (geometry.margin_y + geometry.size_y) * math.floor(i / geometry.columns)
                 a:rect_cw(x, y, x + geometry.size_x, y + geometry.size_y)

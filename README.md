@@ -41,6 +41,7 @@ done
 # TODO
 
 * Add some kind of checkerboard pattern behind transparent thumbnails (ideally with an ffmpeg filter) (?).
+* Option to start the gallery view on startup
 
 # Limitations
 
