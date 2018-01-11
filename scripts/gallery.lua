@@ -2,6 +2,8 @@ local utils = require 'mp.utils'
 local msg = require 'mp.msg'
 local assdraw = require 'mp.assdraw'
 
+local on_windows = (package.config:sub(1,1) ~= "/")
+
 local opts = {
     thumbs_dir = "~/.mpv_thumbs_dir",
     auto_generate_thumbnails = true,
@@ -45,8 +47,10 @@ local opts = {
     REMOVE    = "DEL",
 }
 (require 'mp.options').read_options(opts)
-opts.thumbs_dir = string.gsub(opts.thumbs_dir, "^~", os.getenv("HOME") or "~")
 
+if not on_windows then
+    opts.thumbs_dir = string.gsub(opts.thumbs_dir, "^~", os.getenv("HOME") or "~")
+end
 
 local sha256
 --minified code below is a combination of:
@@ -231,10 +235,12 @@ function save_and_clear_playlist()
     for _, f in ipairs(mp.get_property_native("playlist")) do
         local f = string.gsub(f.filename, "^%./", "")
         f = utils.join_path(cwd, f)
-        local n
-        repeat
-            f, n = string.gsub(f, "/[^/]*/%.%./", "/", 1)
-        until n == 0
+        if not on_windows then
+            local n
+            repeat
+                f, n = string.gsub(f, "/[^/]*/%.%./", "/", 1)
+            until n == 0
+        end
         playlist[#playlist + 1]  = f
     end
     if opts.resume_when_picking then
@@ -459,7 +465,11 @@ do
             box:append("{\\bord0}")
             local f = playlist[selection.now]
             if opts.strip_directory then
-                f = string.match(f, "([^/]+)$")
+                if on_windows then
+                    f = string.match(f, "([^\\]+)$") or f
+                else
+                    f = string.match(f, "([^/]+)$") or f
+                end
             end
             if opts.strip_extension then
                 f = string.match(f, "(.+)%.[^.]+$") or f
