@@ -107,7 +107,6 @@ misc = {
     old_idle = "",
     old_force_window = "",
     old_geometry = "",
-    old_osc = "",
 }
 generators = {} -- list of generator scripts that have registered themselves
 
@@ -282,17 +281,16 @@ function restore_properties()
     mp.set_property("idle", misc.old_idle)
     mp.set_property("force-window", misc.old_force_window)
     mp.set_property("geometry", misc.old_geometry)
-    mp.set_property("osc", misc.old_osc)
+    mp.commandv("script-message", "osc-visibility", "auto", "true")
 end
 
 function save_properties()
     misc.old_idle = mp.get_property("idle")
     misc.old_force_window = mp.get_property("force-window")
-    misc.old_osc = mp.get_property("osc")
     misc.old_geometry = mp.get_property("geometry")
     mp.set_property_bool("idle", true)
     mp.set_property_bool("force-window", true)
-    mp.set_property_bool("osc", false)
+    mp.commandv("no-osd", "script-message", "osc-visibility", "never", "true")
     mp.set_property("geometry", geometry.window_w .. "x" .. geometry.window_h)
 end
 
