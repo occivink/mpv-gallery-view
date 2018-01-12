@@ -15,6 +15,7 @@ local opts = {
 
     resume_when_picking = true,
     start_gallery_on_file_end = false,
+    toggle_behaves_as_accept = true,
 
     margin_x = 15,
     margin_y = 15,
@@ -604,7 +605,7 @@ function toggle_gallery()
     if not active then
         start_gallery_view()
     else
-        quit_gallery_view(selection.old)
+        quit_gallery_view(opts.toggle_behaves_as_accept and selection.new or selection.old)
     end
 end
 
