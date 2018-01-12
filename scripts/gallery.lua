@@ -616,7 +616,9 @@ mp.register_script_message("thumbnail-generated", function(hash)
     local thumb_filename = hash .. "_" .. geometry.size_x .. "_" .. geometry.size_y
     local thumb_path = utils.join_path(opts.thumbs_dir, thumb_filename)
     show_overlay(missing, thumb_path)
-    ass_show(false, false, true)
+    if not opts.always_show_placeholders then
+        ass_show(false, false, true)
+    end
     overlays.missing[hash] = nil
 end)
 
