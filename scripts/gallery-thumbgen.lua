@@ -51,7 +51,7 @@ function thumbnail_command(input_path)
                 "default=noprint_wrappers=1:nokey=1", input_path
             }})
             if res.status == 0 then
-                local duration = tonumber(string.match(res.stdout, "^%s*(.-)%s*$"))
+                local duration = tonumber(string.match(res.stdout, "^%s*(.-)%s*$")) or 0
                 start = tostring(duration * globals.take_thumbnail_at / 100)
             end
         end
