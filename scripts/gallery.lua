@@ -241,9 +241,10 @@ function save_and_clear_playlist()
     playlist = {}
     local cwd = utils.getcwd()
     for _, f in ipairs(mp.get_property_native("playlist")) do
-        local f = string.gsub(f.filename, "^%./", "")
-        f = utils.join_path(cwd, f)
+        f = utils.join_path(cwd, f.filename)
+        -- attempt basic path normalization
         if not on_windows then
+            f = string.gsub(f, "/%./", "/")
             local n
             repeat
                 f, n = string.gsub(f, "/[^/]*/%.%./", "/", 1)
