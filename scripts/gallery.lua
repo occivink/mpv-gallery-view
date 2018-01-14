@@ -364,7 +364,7 @@ function remove_selected()
         increment_selection(-1)
     else
         show_overlays(selection.now - view.first + 1, view.last - view.first + 1)
-        ass_show(false, true, true)
+        ass_show(true, true, true)
     end
     remove_overlay(view.last - view.first + 2)
 end
