@@ -473,7 +473,7 @@ do
             local f = playlist[selection.now]
             if opts.strip_directory then
                 if on_windows then
-                    f = string.match(f, "([^\\]+)$") or f
+                    f = string.match(f, "([^\\/]+)$") or f
                 else
                     f = string.match(f, "([^/]+)$") or f
                 end
