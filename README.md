@@ -6,7 +6,7 @@ Gallery-view script for [mpv](https://github.com/mpv-player/mpv). Shows thumbnai
 
 * **The default thumbnail directory is probably not appropriate for your system.** See Installation for instructions on how to change it.
 * **Make sure that the thumbnail directory exists for auto-generation to work.**
-* **Also make sure to have ffmpeg (and ffprobe) in your PATH.** Or use mpv for thumbnails generation (not recommended : slower, no transparency), see settings.
+* **Also make sure to have ffmpeg (and ffprobe) in your PATH.** Or use mpv for thumbnails generation (not recommended : slightly slower, no transparency), see settings.
 * The gallery is slower when using lua5.1, if possible use lua5.2.
 * The script is meant to be used (and works best) with local files.
 

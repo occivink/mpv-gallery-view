@@ -77,8 +77,8 @@ function thumbnail_command(input_path)
         })
     else
         out = { "mpv", input_path }
-        if video then
-            add({"--start", globals.take_thumbnail_at .. "%"})
+        if video and globals.take_thumbnail_at ~= 0 then
+            add({"--hr-seek=no", "--start", globals.take_thumbnail_at .. "%"})
         end
         add({
             "--no-config", "--msg-level=all=no",
@@ -86,6 +86,7 @@ function thumbnail_command(input_path)
             "--audio", "no",
             "--sub", "no",
             "--frames", "1",
+            "--image-display-duration", "0",
             "--of", "rawvideo", "--ovc", "rawvideo",
             "--o", globals.tmp_path
         })
