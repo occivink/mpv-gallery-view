@@ -9,10 +9,18 @@ local globals = {
     take_thumbnail_at = 0,
     generate_thumbnails_with_mpv = false,
     tmp_path = "", -- temporary name for generated thumbnails
+    vf = "",
 }
 
 local thumbnail_stack = {} -- stack of { path, hash } objects
 local failed = {} -- hashes of failed thumbnails, to avoid redoing them
+
+function append_table(lhs, rhs)
+    for i = 1,#rhs do
+        lhs[#lhs+1] = rhs[i]
+    end
+    return lhs
+end
 
 function file_exists(path)
     local f = io.open(path, "r")
@@ -36,13 +44,11 @@ function is_video(input_path)
 end
 
 function thumbnail_command(input_path)
-    local h, w = globals.thumbnail_height, globals.thumbnail_width
-    local scale = string.format("scale=iw*min(1\\,min(%d/iw\\,%d/ih)):-2", w, h)
-    local pad = string.format("pad=%d:%d:(%d-iw)/2:(%d-ih)/2:color=0x00000000", w, h, w, h)
-    local vf = string.format("%s,%s", scale, pad)
     local video = is_video(input_path)
-    local start = "0"
+    local out = {}
+    local add = function(table) out = append_table(out, table) end
     if not globals.generate_thumbnails_with_mpv then
+        out = { "ffmpeg" }
         if video then
             --if only fucking ffmpeg supported percent-style seeking
             local res = utils.subprocess({cancellable = false, args = {
@@ -51,38 +57,40 @@ function thumbnail_command(input_path)
                 "default=noprint_wrappers=1:nokey=1", input_path
             }})
             if res.status == 0 then
-                local duration = tonumber(string.match(res.stdout, "^%s*(.-)%s*$")) or 0
-                start = tostring(duration * globals.take_thumbnail_at / 100)
+                local duration = tonumber(string.match(res.stdout, "^%s*(.-)%s*$"))
+                if duration then
+                    start = tostring(duration * globals.take_thumbnail_at / 100)
+                    add({"-ss", start, "-noaccurate_seek"})
+                end
             end
         end
-        return {
-            "ffmpeg",
-            "-ss", start,
-            "-noaccurate_seek",
+        add({
             "-i", input_path,
-            "-vf", vf,
-            "-map", "v:0", "-f", "rawvideo", "-pix_fmt", "bgra", "-c:v", "rawvideo",
+            "-vf", globals.vf,
+            "-map", "v:0",
+            "-f", "rawvideo",
+            "-pix_fmt", "bgra",
+            "-c:v", "rawvideo",
             "-frames:v", "1",
             "-y", "-loglevel", "quiet",
             globals.tmp_path
-        }
+        })
     else
+        out = { "mpv", input_path }
         if video then
-            start = globals.take_thumbnail_at .. "%"
+            add({"--start", globals.take_thumbnail_at .. "%"})
         end
-        return {
-            "mpv",
-            input_path,
+        add({
             "--no-config", "--msg-level=all=no",
-            "--start", start,
-            "--vf", "lavfi=[" .. vf .. ",format=bgra]",
+            "--vf", "lavfi=[" .. globals.vf .. ",format=bgra]",
             "--audio", "no",
             "--sub", "no",
             "--frames", "1",
             "--of", "rawvideo", "--ovc", "rawvideo",
             "--o", globals.tmp_path
-        }
+        })
     end
+    return out
 end
 
 function init_thumbnails_generator(main_script_name, thumbs_dir,
@@ -97,6 +105,10 @@ function init_thumbnails_generator(main_script_name, thumbs_dir,
     globals.take_thumbnail_at = tonumber(take_thumbnail_at)
     globals.generate_thumbnails_with_mpv = (generate_thumbnails_with_mpv == "true")
     globals.tmp_path = utils.join_path(globals.thumbs_dir, mp.get_script_name())
+    local w, h = globals.thumbnail_width, globals.thumbnail_height
+    local scale = string.format("scale=iw*min(1\\,min(%d/iw\\,%d/ih)):-2", w, h)
+    local pad = string.format("pad=%d:%d:(%d-iw)/2:(%d-ih)/2:color=0x00000000", w, h, w, h)
+    globals.vf = string.format("%s,%s", scale, pad)
 end
 
 function generate_thumbnail(input_path, hash)

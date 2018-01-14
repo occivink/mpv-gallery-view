@@ -47,7 +47,7 @@ done
 
 Ad-hoc thumbnail library (yet another), which is not shared by any other program.
 
-Management of the thumbnails is left to the user. In particular, stale thumbnails (whose file has been (re)moved) are not deleted by the script. This can be fixed by deleting thumbnails which have not been accessed since N days with such a script
+Management of the thumbnails is left to the user. In particular, stale thumbnails (whose file has been (re)moved) are not deleted by the script. This can be fixed by deleting thumbnails which have not been accessed since N days with such a snippet
 ```
 days=7
 min=$((days * 60 * 24)
