@@ -44,6 +44,7 @@ local opts = {
     PAGE_DOWN = "PGDWN",
     FIRST     = "HOME",
     LAST      = "END",
+    RANDOM    = "r",
     ACCEPT    = "ENTER",
     CANCEL    = "ESC",
     REMOVE    = "DEL",
@@ -181,6 +182,7 @@ do
         bindings_repeat[opts.RIGHT]     = function() increment_func(  1, false) end
         bindings_repeat[opts.PAGE_UP]   = function() increment_func(- geometry.columns * geometry.rows, true) end
         bindings_repeat[opts.PAGE_DOWN] = function() increment_func(  geometry.columns * geometry.rows, true) end
+        bindings_repeat[opts.RANDOM]    = function() pending.selection = math.random(1, #playlist) end
         bindings_repeat[opts.REMOVE]    = function() pending.deletion = true end
 
     local bindings = {}
