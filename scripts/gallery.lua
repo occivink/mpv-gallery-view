@@ -97,7 +97,7 @@ selection = {
     now = 0, -- the currently selected element
 }
 pending = {
-    selection_increment = 0,
+    selection = 0,
     window_size_chaned = false,
     deletion = false,
 }
@@ -164,24 +164,33 @@ function select_under_cursor()
 end
 
 do
+    local function increment_func(increment, clamp)
+        local new = selection.now + increment
+        if new <= 0 or new > #playlist then
+            if not clamp then return end
+            new = math.max(1, math.min(new, #playlist))
+        end
+        pending.selection = new
+    end
+
     local bindings_repeat = {}
-        bindings_repeat[opts.UP]        = function() pending.selection_increment = - geometry.columns end
-        bindings_repeat[opts.DOWN]      = function() pending.selection_increment =   geometry.columns end
-        bindings_repeat[opts.LEFT]      = function() pending.selection_increment = - 1 end
-        bindings_repeat[opts.RIGHT]     = function() pending.selection_increment =   1 end
-        bindings_repeat[opts.PAGE_UP]   = function() pending.selection_increment = - geometry.columns * geometry.rows end
-        bindings_repeat[opts.PAGE_DOWN] = function() pending.selection_increment =   geometry.columns * geometry.rows end
+        bindings_repeat[opts.UP]        = function() increment_func(- geometry.columns, false) end
+        bindings_repeat[opts.DOWN]      = function() increment_func(  geometry.columns, false) end
+        bindings_repeat[opts.LEFT]      = function() increment_func(- 1, false) end
+        bindings_repeat[opts.RIGHT]     = function() increment_func(  1, false) end
+        bindings_repeat[opts.PAGE_UP]   = function() increment_func(- geometry.columns * geometry.rows, true) end
+        bindings_repeat[opts.PAGE_DOWN] = function() increment_func(  geometry.columns * geometry.rows, true) end
         bindings_repeat[opts.REMOVE]    = function() pending.deletion = true end
 
     local bindings = {}
-        bindings[opts.FIRST]  = function() pending.selection_increment = -100000000 end
-        bindings[opts.LAST]   = function() pending.selection_increment =  100000000 end
+        bindings[opts.FIRST]  = function() pending.selection = 1 end
+        bindings[opts.LAST]   = function() pending.selection = #playlist end
         bindings[opts.ACCEPT] = function() quit_gallery_view(selection.now) end
         bindings[opts.CANCEL] = function() quit_gallery_view(selection.old) end
     if opts.mouse_support then
         bindings["MBTN_LEFT"]  = select_under_cursor
-        bindings["WHEEL_UP"]   = function() pending.selection_increment = - geometry.columns end
-        bindings["WHEEL_DOWN"] = function() pending.selection_increment =   geometry.columns end
+        bindings["WHEEL_UP"]   = function() increment_func(- geometry.columns, false) end
+        bindings["WHEEL_DOWN"] = function() increment_func(  geometry.columns, false) end
     end
 
     local function window_size_changed()
@@ -193,9 +202,9 @@ do
     end
 
     local function idle_handler()
-        if pending.selection_increment ~= 0 then
-            increment_selection(pending.selection_increment)
-            pending.selection_increment = 0
+        if pending.selection ~= 0 then
+            increment_selection(pending.selection)
+            pending.selection = 0
         end
         if pending.window_size_changed then
             pending.window_size_chaned = false
@@ -322,7 +331,7 @@ function get_geometry(window_w, window_h)
 end
 
 function increment_selection(inc)
-    selection.now = math.max(1, math.min(selection.now + pending.selection_increment, #playlist))
+    selection.now = inc
     max_thumbs = geometry.rows * geometry.columns
     if selection.now < view.first or selection.now > view.last then
         if selection.now < view.first then
@@ -363,7 +372,7 @@ function remove_selected()
     selection.old = math.min(selection.old, #playlist)
     view.last = math.min(view.last, #playlist)
     if selection.now > #playlist then
-        increment_selection(-1)
+        increment_selection(selection.now - 1)
     else
         show_overlays(selection.now - view.first + 1, view.last - view.first + 1)
         ass_show(true, true, true)
