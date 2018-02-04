@@ -162,6 +162,7 @@ function select_under_cursor()
             quit_gallery_view(selection.now)
         else
             selection.now = new_sel
+            pending.selection = new_sel
             ass_show(true, false, false)
         end
     end
@@ -169,7 +170,7 @@ end
 
 do
     local function increment_func(increment, clamp)
-        local new = selection.now + increment
+        local new = pending.selection + increment
         if new <= 0 or new > #playlist then
             if not clamp then return end
             new = math.max(1, math.min(new, #playlist))
@@ -207,9 +208,8 @@ do
     end
 
     local function idle_handler()
-        if pending.selection ~= 0 then
+        if pending.selection ~= selection.now then
             increment_selection(pending.selection)
-            pending.selection = 0
         end
         if pending.window_size_changed then
             pending.window_size_chaned = false
@@ -336,6 +336,7 @@ end
 
 function increment_selection(inc)
     selection.now = inc
+    pending.selection = inc
     max_thumbs = geometry.rows * geometry.columns
     if selection.now < view.first or selection.now > view.last then
         if selection.now < view.first then
@@ -585,6 +586,7 @@ function start_gallery_view()
     save_properties()
     selection.old = mp.get_property_number("playlist-pos-1")
     selection.now = selection.old
+    pending.selection = selection.now
     local old_playlist_size = #playlist
     local max_thumbs = geometry.rows * geometry.columns
     save_and_clear_playlist()
