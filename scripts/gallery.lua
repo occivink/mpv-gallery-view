@@ -476,13 +476,15 @@ do
             box:new_event()
             local an = 5
             y = y + geometry.size_y + geometry.margin_y / 2
-            if col == 0 then
-                an = 4
-            elseif col == geometry.columns - 1 then
-                x = x + geometry.size_x
-                an = 6
-            else
-                x = x + geometry.size_x / 2
+            x = x + geometry.size_x / 2
+            if geometry.columns > 1 then
+                if col == 0 then
+                    x = x - geometry.size_x / 2
+                    an = 4
+                elseif col == geometry.columns - 1 then
+                    x = x + geometry.size_x / 2
+                    an = 6
+                end
             end
             box:an(an)
             box:pos(x, y)
