@@ -273,6 +273,7 @@ function save_and_clear_playlist()
 end
 
 function restore_playlist_and_select(select)
+    mp.set_property_bool("pause", false)
     mp.commandv("loadfile", playlist[select], "replace")
     if opts.resume_when_picking then
         local time = resume[playlist[select]]
