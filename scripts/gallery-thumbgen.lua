@@ -49,7 +49,7 @@ function thumbnail_command(input_path)
     local add = function(table) out = append_table(out, table) end
     if not globals.generate_thumbnails_with_mpv then
         out = { "ffmpeg" }
-        if video then
+        if video and globals.take_thumbnail_at ~= 0 then
             --if only fucking ffmpeg supported percent-style seeking
             local res = utils.subprocess({cancellable = false, args = {
                 "ffprobe", "-v", "error",
