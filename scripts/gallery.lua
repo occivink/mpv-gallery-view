@@ -270,8 +270,7 @@ function save_and_clear_playlist()
     if opts.resume_when_picking then
         resume[playlist[mp.get_property_number("playlist-pos-1")]] = mp.get_property_number("time-pos")
     end
-    mp.command("playlist-clear")
-    mp.command("playlist-remove current")
+    mp.command("stop")
 end
 
 function restore_playlist_and_select(select)
@@ -356,7 +355,6 @@ function increment_selection(inc)
 end
 
 function resize_gallery(window_w, window_h)
-    ass_hide()
     local old_max_thumbs = geometry.rows * geometry.columns
     get_geometry(window_w, window_h)
     local max_thumbs = geometry.rows * geometry.columns
