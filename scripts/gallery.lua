@@ -11,7 +11,7 @@ local opts = {
 
     thumbnail_width = 192,
     thumbnail_height = 108,
-    take_thumbnail_at = 20,
+    take_thumbnail_at = "20%",
 
     resume_when_picking = true,
     start_gallery_on_file_end = false,
@@ -526,13 +526,13 @@ function show_overlays(from, to)
     for i = from, to do
         local filename = playlist[view.first + i - 1]
         local filename_hash = string.sub(sha256(filename), 1, 12)
-        local thumb_filename = filename_hash .. "_" .. geometry.size_x .. "_" .. geometry.size_y
+        local thumb_filename = string.format("%s_%d_%d", filename_hash, geometry.size_x, geometry.size_y)
         local thumb_path = utils.join_path(opts.thumbs_dir, thumb_filename)
         if file_exists(thumb_path) then
             show_overlay(i, thumb_path)
         else
             remove_overlay(i)
-            todo[#todo + 1] = { index = i, path = filename, hash = filename_hash }
+            todo[#todo + 1] = { index = i, input = filename, output = thumb_path }
         end
     end
     -- reverse iterate so that the first thumbnail is at the top of the stack
@@ -540,8 +540,15 @@ function show_overlays(from, to)
         for i = #todo, 1, -1 do
             local generator = generators[i % #generators + 1]
             local t = todo[i]
-            overlays.missing[t.hash] = t.index
-            mp.commandv("script-message-to", generator, "push-thumbnail-to-stack", t.path, t.hash)
+            overlays.missing[t.output] = t.index
+            mp.commandv("script-message-to", generator, "push-thumbnail-front",
+                t.input,
+                tostring(opts.thumbnail_width),
+                tostring(opts.thumbnail_height),
+                opts.take_thumbnail_at,
+                t.output,
+                opts.generate_thumbnails_with_mpv and "true" or "false"
+            )
         end
     end
 end
@@ -626,33 +633,23 @@ function toggle_gallery()
     end
 end
 
-mp.register_script_message("thumbnail-generated", function(hash)
+mp.register_script_message("thumbnail-generated", function(thumbnail_path)
     if not active then return end
-    local missing = overlays.missing[hash]
-    if missing == nil then return end
-    local thumb_filename = hash .. "_" .. geometry.size_x .. "_" .. geometry.size_y
-    local thumb_path = utils.join_path(opts.thumbs_dir, thumb_filename)
-    show_overlay(missing, thumb_path)
+    local index_missing = overlays.missing[thumbnail_path]
+    if index_missing == nil then return end
+    show_overlay(index_missing, thumbnail_path)
     if not opts.always_show_placeholders then
         ass_show(false, false, true)
     end
-    overlays.missing[hash] = nil
+    overlays.missing[thumbnail_path] = nil
 end)
 
-mp.register_script_message("gallery-thunbnails-generator-registered", function(generator_name)
+mp.register_script_message("thumbnails-generator-broadcast", function(generator_name)
     if #generators >= opts.max_generators then return end
     for _, g in ipairs(generators) do
         if generator_name == g then return end
     end
     generators[#generators + 1] = generator_name
-    mp.commandv("script-message-to", generator_name, "init-thumbnails-generator",
-        mp.get_script_name(),
-        opts.thumbs_dir,
-        tostring(opts.thumbnail_width),
-        tostring(opts.thumbnail_height),
-        tostring(opts.take_thumbnail_at),
-        tostring(opts.generate_thumbnails_with_mpv)
-    )
 end)
 
 if opts.start_gallery_on_file_end then

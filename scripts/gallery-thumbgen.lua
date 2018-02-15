@@ -1,19 +1,7 @@
 local utils = require 'mp.utils'
 
-local globals = {
-    registered = false,
-    main_script_name = "",
-    thumbs_dir = "",
-    thumbnail_width = 0,
-    thumbnail_height = 0,
-    take_thumbnail_at = 0,
-    generate_thumbnails_with_mpv = false,
-    tmp_path = "", -- temporary name for generated thumbnails
-    vf = "",
-}
-
-local thumbnail_stack = {} -- stack of { path, hash } objects
-local failed = {} -- hashes of failed thumbnails, to avoid redoing them
+local thumbnail_queue = {} -- stack of { path, hash } objects
+local failed = {} -- list of failed output paths, to avoid redoing them
 
 function append_table(lhs, rhs)
     for i = 1,#rhs do
@@ -43,84 +31,84 @@ function is_video(input_path)
     return false
 end
 
-function thumbnail_command(input_path)
-    local video = is_video(input_path)
+function thumbnail_command(input_path, width, height, take_thumbnail_at, output_path, with_mpv)
+    local vf = string.format("%s,%s",
+        string.format("scale=iw*min(1\\,min(%d/iw\\,%d/ih)):-2", width, height),
+        string.format("pad=%d:%d:(%d-iw)/2:(%d-ih)/2:color=0x00000000", width, height, width, height)
+    )
     local out = {}
     local add = function(table) out = append_table(out, table) end
-    if not globals.generate_thumbnails_with_mpv then
+    if not with_mpv then
         out = { "ffmpeg" }
-        if video and globals.take_thumbnail_at ~= 0 then
-            --if only fucking ffmpeg supported percent-style seeking
-            local res = utils.subprocess({cancellable = false, args = {
-                "ffprobe", "-v", "error",
-                "-show_entries", "format=duration", "-of",
-                "default=noprint_wrappers=1:nokey=1", input_path
-            }})
-            if res.status == 0 then
-                local duration = tonumber(string.match(res.stdout, "^%s*(.-)%s*$"))
-                if duration then
-                    start = tostring(duration * globals.take_thumbnail_at / 100)
-                    add({"-ss", start, "-noaccurate_seek"})
+        if is_video(input_path) then
+            if string.sub(take_thumbnail_at, -1) == "%" then
+                --if only fucking ffmpeg supported percent-style seeking
+                local res = utils.subprocess({args = {
+                    "ffprobe", "-v", "error",
+                    "-show_entries", "format=duration", "-of",
+                    "default=noprint_wrappers=1:nokey=1", input_path
+                }, cancellable = false })
+                if res.status == 0 then
+                    local duration = tonumber(string.match(res.stdout, "^%s*(.-)%s*$"))
+                    if duration then
+                        local percent = tonumber(string.sub(take_thumbnail_at, 1, -2))
+                        start = tostring(duration * percent / 100)
+                        add({ "-ss", start, "-noaccurate_seek" })
+                    end
                 end
+            else
+                add({ "-ss", tonumber(take_thumbnail_at), "-noaccurate_seek" })
             end
         end
         add({
             "-i", input_path,
-            "-vf", globals.vf,
+            "-vf", vf,
             "-map", "v:0",
             "-f", "rawvideo",
             "-pix_fmt", "bgra",
             "-c:v", "rawvideo",
             "-frames:v", "1",
             "-y", "-loglevel", "quiet",
-            globals.tmp_path
+            output_path
         })
     else
         out = { "mpv", input_path }
-        if video and globals.take_thumbnail_at ~= 0 then
-            add({"--hr-seek=no", "--start", globals.take_thumbnail_at .. "%"})
+        if take_thumbnail_at ~= "0" and is_video(input_path) then
+            add({ "--hr-seek=no", "--start", take_thumbnail_at })
         end
         add({
             "--no-config", "--msg-level=all=no",
-            "--vf", "lavfi=[" .. globals.vf .. ",format=bgra]",
+            "--vf", "lavfi=[" .. vf .. ",format=bgra]",
             "--audio", "no",
             "--sub", "no",
             "--frames", "1",
             "--image-display-duration", "0",
             "--of", "rawvideo", "--ovc", "rawvideo",
-            "--o", globals.tmp_path
+            "--o", output_path
         })
     end
     return out
 end
 
-function init_thumbnails_generator(main_script_name, thumbs_dir,
-    thumbnail_width, tumbnail_height, take_thumbnail_at,
-    generate_thumbnails_with_mpv
-)
-    globals.registered = true
-    globals.main_script_name = main_script_name
-    globals.thumbs_dir = thumbs_dir
-    globals.thumbnail_width = tonumber(thumbnail_width)
-    globals.thumbnail_height = tonumber(tumbnail_height)
-    globals.take_thumbnail_at = tonumber(take_thumbnail_at)
-    globals.generate_thumbnails_with_mpv = (generate_thumbnails_with_mpv == "true")
-    globals.tmp_path = utils.join_path(globals.thumbs_dir, mp.get_script_name())
-    local w, h = globals.thumbnail_width, globals.thumbnail_height
-    local scale = string.format("scale=iw*min(1\\,min(%d/iw\\,%d/ih)):-2", w, h)
-    local pad = string.format("pad=%d:%d:(%d-iw)/2:(%d-ih)/2:color=0x00000000", w, h, w, h)
-    globals.vf = string.format("%s,%s", scale, pad)
-end
+function generate_thumbnail(thumbnail_job)
+    if file_exists(thumbnail_job.output_path) then return true end
 
-function generate_thumbnail(input_path, hash)
-    local output_path = utils.join_path(globals.thumbs_dir,
-        string.format("%s_%d_%d", hash, globals.thumbnail_width, globals.thumbnail_height)
+    local dir, _ = utils.split_path(thumbnail_job.output_path)
+    local tmp_output_path = utils.join_path(dir, mp.get_script_name())
+
+    local command = thumbnail_command(
+        thumbnail_job.input_path,
+        thumbnail_job.width,
+        thumbnail_job.height,
+        thumbnail_job.take_thumbnail_at,
+        tmp_output_path,
+        thumbnail_job.with_mpv
     )
-    if file_exists(output_path) then return true end
-    local res = utils.subprocess({ args = thumbnail_command(input_path), cancellable = false })
+
+    local res = utils.subprocess({ args = command, cancellable = false })
     --"atomically" generate the output to avoid loading half-generated thumbnails (results in crashes)
     if res.status == 0 then
-        if os.rename(globals.tmp_path, output_path) then
+        if os.rename(tmp_output_path, thumbnail_job.output_path) then
             return true
         end
     end
@@ -134,11 +122,20 @@ function handle_events(wait, full)
         if e.event == "shutdown" then
             return false
         elseif e.event == "client-message" then
-            if e.args[1] == "push-thumbnail-to-stack" then
-                thumbnail_stack[#thumbnail_stack + 1] = { path = e.args[2], hash = e.args[3] }
-            elseif e.args[1] == "init-thumbnails-generator" then
-                init_thumbnails_generator(e.args[2], e.args[3], e.args[4], e.args[5], e.args[6], e.args[7])
-                return true
+            if e.args[1] == "push-thumbnail-front" or e.args[1] == "push-thumbnail-back" then
+                local thumbnail_job = {
+                    input_path = e.args[2],
+                    width = tonumber(e.args[3]),
+                    height = tonumber(e.args[4]),
+                    take_thumbnail_at = e.args[5],
+                    output_path = e.args[6],
+                    with_mpv = (e.args[7] == "true"),
+                }
+                if e.args[1] == "push-thumbnail-front" then
+                    thumbnail_queue[#thumbnail_queue + 1] = thumbnail_job
+                else
+                    table.insert(thumbnail_queue, 1, thumbnail_job)
+                end
             end
         end
         e = mp.wait_event(full and (start_time + wait - mp.get_time()) or 0)
@@ -146,35 +143,44 @@ function handle_events(wait, full)
     return true
 end
 
-local registration_timeout = 3 -- seconds
-local registration_period = 0.1
+local registration_timeout = 2 -- seconds
+local registration_period = 0.2
 
 -- shitty custom event loop because I can't figure out a better way
 -- works pretty well though
 function mp_event_loop()
     local start_time = mp.get_time()
-    while not globals.registered do
-        if mp.get_time() > start_time + registration_timeout then return end
-        mp.commandv("script-message", "gallery-thunbnails-generator-registered", mp.get_script_name())
-        if not handle_events(registration_period, true) then return end
+    local sleep_time = registration_period
+    local last_broadcast_time = -registration_period
+    local wait_full_time = true
+    broadcast_func = function()
+        local now = mp.get_time()
+        if now >= start_time + registration_timeout then
+            mp.commandv("script-message", "thumbnails-generator-broadcast", mp.get_script_name())
+            wait_full_time = false
+            sleep_time = 1e20
+            broadcast_func = function() end
+        elseif now >= last_broadcast_time + registration_period then
+            mp.commandv("script-message", "thumbnails-generator-broadcast", mp.get_script_name())
+            last_broadcast_time = now
+        end
     end
+
     while true do
-        if not handle_events(1e20) then return end
-        while #thumbnail_stack > 0 do
-            local input = thumbnail_stack[#thumbnail_stack]
-            if not failed[input.hash] then
-                local res = generate_thumbnail(input.path, input.hash)
-                if res then
-                    mp.commandv("script-message-to", "gallery", "thumbnail-generated", input.hash)
+        if not handle_events(sleep_time, wait_full_time) then return end
+        broadcast_func()
+        while #thumbnail_queue > 0 do
+            local thumbnail_job = thumbnail_queue[#thumbnail_queue]
+            if not failed[thumbnail_job.output_path] then
+                if generate_thumbnail(thumbnail_job) then
+                    mp.commandv("script-message-to", "gallery", "thumbnail-generated", thumbnail_job.output_path)
                 else
-                    failed[input.hash] = true
+                    failed[thumbnail_job.output_path] = true
                 end
             end
-            thumbnail_stack[#thumbnail_stack] = nil
-            if not handle_events(0) then return end
+            thumbnail_queue[#thumbnail_queue] = nil
+            if not handle_events(0, false) then return end
+            broadcast_func()
         end
     end
 end
-
--- broadcast to every script in case the user modified the "gallery" script filename
-mp.commandv("script-message", "gallery-thunbnails-generator-registered", mp.get_script_name())
