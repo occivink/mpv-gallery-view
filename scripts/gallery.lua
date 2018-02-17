@@ -11,6 +11,8 @@ local opts = {
 
     thumbnail_width = 192,
     thumbnail_height = 108,
+    dynamic_thumbnail_size = "",
+
     take_thumbnail_at = "20%",
 
     resume_when_picking = true,
@@ -51,6 +53,18 @@ local opts = {
     REMOVE    = "DEL",
 }
 (require 'mp.options').read_options(opts)
+
+function split(input, char, tonum)
+    local ret = {}
+    for str in string.gmatch(input, "([^" .. char .. "]+)") do
+        ret[#ret + 1] = tonum and tonumber(str) or str
+    end
+    return ret
+end
+opts.dynamic_thumbnail_size = split(opts.dynamic_thumbnail_size, ";", false)
+for i = 1, #opts.dynamic_thumbnail_size do
+    opts.dynamic_thumbnail_size[i] = split(opts.dynamic_thumbnail_size[i], ",", true)
+end
 
 if on_windows then
     opts.thumbs_dir = string.gsub(opts.thumbs_dir, "^%%APPDATA%%", os.getenv("APPDATA") or "%APPDATA%")
@@ -101,7 +115,7 @@ selection = {
 }
 pending = {
     selection = 0,
-    window_size_chaned = false,
+    window_size_changed = false,
     deletion = false,
 }
 ass = {
@@ -144,6 +158,16 @@ function file_exists(path)
     else
         return false
     end
+end
+
+function thumbnail_size_from_presets(window_w, window_h)
+    local size = window_w * window_h
+    for _, preset in ipairs(opts.dynamic_thumbnail_size) do
+        if size <= preset[1] then
+            return { preset[2], preset[3] }
+        end
+    end
+    return nil
 end
 
 function select_under_cursor()
@@ -212,9 +236,21 @@ do
             increment_selection(pending.selection)
         end
         if pending.window_size_changed then
-            pending.window_size_chaned = false
+            pending.window_size_changed = false
+            local actually_changed = false
             local window_w, window_h = mp.get_osd_size()
+            local new_thumb_size = thumbnail_size_from_presets(window_w, window_h)
+            if new_thumb_size and (new_thumb_size[1] ~= opts.thumbnail_width or
+                new_thumb_size[2] ~= opts.thumbnail_height)
+            then
+                opts.thumbnail_width = new_thumb_size[1]
+                opts.thumbnail_height = new_thumb_size[2]
+                actually_changed = true
+            end
             if window_w ~= geometry.window_w or window_h ~= geometry.window_h then
+                actually_changed = true
+            end
+            if actually_changed then
                 resize_gallery(window_w, window_h)
             end
         end
@@ -586,8 +622,14 @@ end
 function start_gallery_view()
     init()
     if mp.get_property_number("playlist-count") == 0 then return end
+    local w, h = mp.get_osd_size()
+    local new_thumb_size = thumbnail_size_from_presets(w, h)
+    if new_thumb_size then
+        opts.thumbnail_width = new_thumb_size[1]
+        opts.thumbnail_height = new_thumb_size[2]
+    end
     local old_max_thumbs = geometry.rows * geometry.columns
-    get_geometry(mp.get_osd_size())
+    get_geometry(w, h)
     if geometry.rows <= 0 or geometry.columns <= 0 then return end
     save_properties()
     selection.old = mp.get_property_number("playlist-pos-1")
