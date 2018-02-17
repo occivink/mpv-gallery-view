@@ -542,6 +542,7 @@ function show_overlays(from, to)
             local t = todo[i]
             overlays.missing[t.output] = t.index
             mp.commandv("script-message-to", generator, "push-thumbnail-front",
+                mp.get_script_name(),
                 t.input,
                 tostring(opts.thumbnail_width),
                 tostring(opts.thumbnail_height),

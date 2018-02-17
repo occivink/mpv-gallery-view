@@ -1,6 +1,6 @@
 local utils = require 'mp.utils'
 
-local thumbnail_queue = {} -- stack of { path, hash } objects
+local jobs_queue = {} -- queue of thumbnail jobs
 local failed = {} -- list of failed output paths, to avoid redoing them
 
 function append_table(lhs, rhs)
@@ -43,7 +43,7 @@ function thumbnail_command(input_path, width, height, take_thumbnail_at, output_
         if is_video(input_path) then
             if string.sub(take_thumbnail_at, -1) == "%" then
                 --if only fucking ffmpeg supported percent-style seeking
-                local res = utils.subprocess({args = {
+                local res = utils.subprocess({ args = {
                     "ffprobe", "-v", "error",
                     "-show_entries", "format=duration", "-of",
                     "default=noprint_wrappers=1:nokey=1", input_path
@@ -52,7 +52,7 @@ function thumbnail_command(input_path, width, height, take_thumbnail_at, output_
                     local duration = tonumber(string.match(res.stdout, "^%s*(.-)%s*$"))
                     if duration then
                         local percent = tonumber(string.sub(take_thumbnail_at, 1, -2))
-                        start = tostring(duration * percent / 100)
+                        local start = tostring(duration * percent / 100)
                         add({ "-ss", start, "-noaccurate_seek" })
                     end
                 end
@@ -115,8 +115,7 @@ function generate_thumbnail(thumbnail_job)
     return false
 end
 
-function handle_events(wait, full)
-    local start_time = mp.get_time()
+function handle_events(wait)
     e = mp.wait_event(wait)
     while e.event ~= "none" do
         if e.event == "shutdown" then
@@ -124,21 +123,22 @@ function handle_events(wait, full)
         elseif e.event == "client-message" then
             if e.args[1] == "push-thumbnail-front" or e.args[1] == "push-thumbnail-back" then
                 local thumbnail_job = {
-                    input_path = e.args[2],
-                    width = tonumber(e.args[3]),
-                    height = tonumber(e.args[4]),
-                    take_thumbnail_at = e.args[5],
-                    output_path = e.args[6],
-                    with_mpv = (e.args[7] == "true"),
+                    requester = e.args[2],
+                    input_path = e.args[3],
+                    width = tonumber(e.args[4]),
+                    height = tonumber(e.args[5]),
+                    take_thumbnail_at = e.args[6],
+                    output_path = e.args[7],
+                    with_mpv = (e.args[8] == "true"),
                 }
                 if e.args[1] == "push-thumbnail-front" then
-                    thumbnail_queue[#thumbnail_queue + 1] = thumbnail_job
+                    jobs_queue[#jobs_queue + 1] = thumbnail_job
                 else
-                    table.insert(thumbnail_queue, 1, thumbnail_job)
+                    table.insert(jobs_queue, 1, thumbnail_job)
                 end
             end
         end
-        e = mp.wait_event(full and (start_time + wait - mp.get_time()) or 0)
+        e = mp.wait_event(0)
     end
     return true
 end
@@ -152,12 +152,11 @@ function mp_event_loop()
     local start_time = mp.get_time()
     local sleep_time = registration_period
     local last_broadcast_time = -registration_period
-    local wait_full_time = true
+    local broadcast_func
     broadcast_func = function()
         local now = mp.get_time()
         if now >= start_time + registration_timeout then
             mp.commandv("script-message", "thumbnails-generator-broadcast", mp.get_script_name())
-            wait_full_time = false
             sleep_time = 1e20
             broadcast_func = function() end
         elseif now >= last_broadcast_time + registration_period then
@@ -167,19 +166,19 @@ function mp_event_loop()
     end
 
     while true do
-        if not handle_events(sleep_time, wait_full_time) then return end
+        if not handle_events(sleep_time) then return end
         broadcast_func()
-        while #thumbnail_queue > 0 do
-            local thumbnail_job = thumbnail_queue[#thumbnail_queue]
+        while #jobs_queue > 0 do
+            local thumbnail_job = jobs_queue[#jobs_queue]
             if not failed[thumbnail_job.output_path] then
                 if generate_thumbnail(thumbnail_job) then
-                    mp.commandv("script-message-to", "gallery", "thumbnail-generated", thumbnail_job.output_path)
+                    mp.commandv("script-message-to", thumbnail_job.requester, "thumbnail-generated", thumbnail_job.output_path)
                 else
                     failed[thumbnail_job.output_path] = true
                 end
             end
-            thumbnail_queue[#thumbnail_queue] = nil
-            if not handle_events(0, false) then return end
+            jobs_queue[#jobs_queue] = nil
+            if not handle_events(0) then return end
             broadcast_func()
         end
     end
