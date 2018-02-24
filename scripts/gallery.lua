@@ -57,13 +57,18 @@ local opts = {
 function split(input, char, tonum)
     local ret = {}
     for str in string.gmatch(input, "([^" .. char .. "]+)") do
-        ret[#ret + 1] = tonum and tonumber(str) or str
+        ret[#ret + 1] = (not tonum and str) or tonumber(str)
     end
     return ret
 end
 opts.dynamic_thumbnail_size = split(opts.dynamic_thumbnail_size, ";", false)
 for i = 1, #opts.dynamic_thumbnail_size do
-    opts.dynamic_thumbnail_size[i] = split(opts.dynamic_thumbnail_size[i], ",", true)
+    local preset = split(opts.dynamic_thumbnail_size[i], ",", true)
+    if (#preset ~= 3) or not (preset[1] and preset[2] and preset[3]) then
+        msg.error(opts.dynamic_thumbnail_size[i] .. " is not a valid preset")
+        return
+    end
+    opts.dynamic_thumbnail_size[i] = preset
 end
 
 if on_windows then
@@ -162,12 +167,14 @@ end
 
 function thumbnail_size_from_presets(window_w, window_h)
     local size = window_w * window_h
+    local picked = nil
     for _, preset in ipairs(opts.dynamic_thumbnail_size) do
+        picked = { preset[2], preset[3] }
         if size <= preset[1] then
-            return { preset[2], preset[3] }
+            break
         end
     end
-    return nil
+    return picked
 end
 
 function select_under_cursor()
