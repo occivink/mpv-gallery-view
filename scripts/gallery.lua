@@ -679,7 +679,7 @@ function toggle_gallery()
     if not active then
         start_gallery_view()
     else
-        quit_gallery_view(opts.toggle_behaves_as_accept and selection.new or selection.old)
+        quit_gallery_view(opts.toggle_behaves_as_accept and selection.now or selection.old)
     end
 end
 
