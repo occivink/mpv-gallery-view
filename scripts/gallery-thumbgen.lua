@@ -20,12 +20,16 @@ function file_exists(path)
     end
 end
 
+local video_extensions = { "mkv", "webm", "mp4", "avi", "wmv" }
+
 function is_video(input_path)
     local extension = string.match(input_path, "%.([^.]+)$")
     if extension then
         extension = string.lower(extension)
-        if extension == "mkv" or extension == "webm" or extension == "mp4" or extension == "avi" then
-            return true
+        for _, ext in ipairs(video_extensions) do
+            if extension == ext then
+                return true
+            end
         end
     end
     return false
