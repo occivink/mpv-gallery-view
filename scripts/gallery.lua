@@ -30,6 +30,7 @@ local opts = {
     show_placeholders = true,
     placeholder_color = "222222",
     always_show_placeholders = false,
+    background = "0.1",
 
     show_filename = true,
     strip_directory = true,
@@ -134,6 +135,7 @@ misc = {
     old_force_window = "",
     old_geometry = "",
     old_osd_level = "",
+    old_background = "",
 }
 generators = {} -- list of generator scripts that have registered themselves
 
@@ -345,6 +347,7 @@ function restore_properties()
     mp.set_property("force-window", misc.old_force_window)
     mp.set_property("geometry", misc.old_geometry)
     mp.set_property("osd-level", misc.old_osd_level)
+    mp.set_property("background", misc.old_background)
     mp.commandv("script-message", "osc-visibility", "auto", "true")
 end
 
@@ -353,9 +356,11 @@ function save_properties()
     misc.old_force_window = mp.get_property("force-window")
     misc.old_geometry = mp.get_property("geometry")
     misc.old_osd_level = mp.get_property("osd-level")
+    misc.old_background = mp.get_property("background")
     mp.set_property_bool("idle", true)
     mp.set_property_bool("force-window", true)
     mp.set_property_number("osd-level", 0)
+    mp.set_property("background", opts.background)
     mp.commandv("no-osd", "script-message", "osc-visibility", "never", "true")
     mp.set_property("geometry", geometry.window_w .. "x" .. geometry.window_h)
 end
