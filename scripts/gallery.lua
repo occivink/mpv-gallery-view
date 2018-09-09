@@ -300,8 +300,11 @@ function save_and_clear_playlist()
     playlist = {}
     local cwd = utils.getcwd()
     for _, f in ipairs(mp.get_property_native("playlist")) do
-        f = utils.join_path(cwd, f.filename)
-        -- attempt basic path normalization
+        if string.sub(f.filename,1,8)=="https://" or string.sub(f.filename,1,7)=="http://"
+            then f = f.filename
+            else f = utils.join_path(cwd, f.filename)
+        end
+        -- attempt basic path normalization if file is not from Web
         if on_windows then
             f = string.gsub(f, "\\", "/")
         end
