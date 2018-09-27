@@ -112,7 +112,7 @@ view = { -- 1-based indices into the "playlist" array
     last = 0, -- must be > first_visible and <= first_visible + rows*columns
 }
 overlays = {
-    active = {}, -- array of 64 booleans indicated whether the corresponding overlay is shown
+    active = {}, -- array of 64 booleans indicating whether the corresponding overlay is currently shown
     missing = {}, -- maps hashes of missing thumbnails to the index they should be shown at
 }
 selection = {
@@ -300,16 +300,20 @@ function save_and_clear_playlist()
     playlist = {}
     local cwd = utils.getcwd()
     for _, f in ipairs(mp.get_property_native("playlist")) do
-        f = utils.join_path(cwd, f.filename)
-        -- attempt basic path normalization
-        if on_windows then
-            f = string.gsub(f, "\\", "/")
+        if string.find(f.filename, "://") then
+            f = f.filename
+        else
+            f = utils.join_path(cwd, f.filename)
+            -- attempt basic path normalization
+            if on_windows then
+                f = string.gsub(f, "\\", "/")
+            end
+            f = string.gsub(f, "/%./", "/")
+            local n
+            repeat
+                f, n = string.gsub(f, "/[^/]*/%.%./", "/", 1)
+            until n == 0
         end
-        f = string.gsub(f, "/%./", "/")
-        local n
-        repeat
-            f, n = string.gsub(f, "/[^/]*/%.%./", "/", 1)
-        until n == 0
         playlist[#playlist + 1]  = f
     end
     if opts.resume_when_picking then
