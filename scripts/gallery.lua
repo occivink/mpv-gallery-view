@@ -37,6 +37,11 @@ local opts = {
     strip_extension = true,
     text_size = 28,
 
+    selected_frame_color = "DDDDDD",
+    flagged_frame_color = "5B9769",
+    selected_flagged_frame_color = "BAFFCA",
+    flagged_file_path = "./mpv_flagged",
+
     max_generators = 8,
 
     mouse_support = true,
@@ -52,6 +57,7 @@ local opts = {
     ACCEPT    = "ENTER",
     CANCEL    = "ESC",
     REMOVE    = "DEL",
+    FLAG      = "SPACE",
 }
 (require 'mp.options').read_options(opts)
 
@@ -129,6 +135,7 @@ ass = {
     scrollbar = "",
     placeholders = "",
 }
+flags = {}
 resume = {} -- maps filename to the time-pos it was at when starting the gallery
 misc = {
     old_idle = "",
@@ -201,6 +208,16 @@ function select_under_cursor()
     end
 end
 
+function toggle_selection_flag()
+    local name = playlist[selection.now]
+    if flags[name] == nil then
+        flags[name] = true
+    else
+        flags[name] = nil
+    end
+    ass_show(true, false, false)
+end
+
 do
     local function increment_func(increment, clamp)
         local new = pending.selection + increment
@@ -226,6 +243,7 @@ do
         bindings[opts.LAST]   = function() pending.selection = #playlist end
         bindings[opts.ACCEPT] = function() quit_gallery_view(selection.now) end
         bindings[opts.CANCEL] = function() quit_gallery_view(selection.old) end
+        bindings[opts.FLAG]   = toggle_selection_flag
     if opts.mouse_support then
         bindings["MBTN_LEFT"]  = select_under_cursor
         bindings["WHEEL_UP"]   = function() increment_func(- geometry.columns, false) end
@@ -423,12 +441,14 @@ end
 
 function remove_selected()
     if #playlist < 2 then return end
+    flags[playlist[selection.now]] = nil
     table.remove(playlist, selection.now)
     selection.old = math.min(selection.old, #playlist)
     view.last = math.min(view.last, #playlist)
     if selection.now > #playlist then
         increment_selection(selection.now - 1)
     else
+        -- this is wrong
         show_overlays(selection.now - view.first + 1, view.last - view.first + 1)
         ass_show(true, true, true)
     end
@@ -507,24 +527,41 @@ do
     end
 
     local function refresh_selection()
-        local i = selection.now - view.first
-        local col = (i % geometry.columns)
-        local x = geometry.margin_x + (geometry.margin_x + geometry.size_x) * col
-        local y = geometry.margin_y + (geometry.margin_y + geometry.size_y) * math.floor(i / geometry.columns)
-        local box = assdraw.ass_new()
-        box:new_event()
-        box:append('{\\bord6}')
-        box:append('{\\3c&DDDDDD&}')
-        box:append('{\\1a&FF&}')
-        box:pos(0, 0)
-        box:draw_start()
-        box:round_rect_cw(x + 1, y + 1, x + geometry.size_x - 1, y + geometry.size_y - 1, 2)
-        box:draw_stop()
+        local selection_ass = assdraw.ass_new()
+        local draw_frame = function(index, color)
+            if index < view.first or index > view.last then return end
+            local i = index - view.first
+            local x = geometry.margin_x + (geometry.margin_x + geometry.size_x) * (i % geometry.columns)
+            local y = geometry.margin_y + (geometry.margin_y + geometry.size_y) * math.floor(i / geometry.columns)
+            selection_ass:new_event()
+            selection_ass:append('{\\bord5}')
+            selection_ass:append('{\\3c&'.. color ..'&}')
+            selection_ass:append('{\\1a&FF&}')
+            selection_ass:pos(0, 0)
+            selection_ass:draw_start()
+            selection_ass:round_rect_cw(x, y, x + geometry.size_x, y + geometry.size_y, 2)
+            selection_ass:draw_stop()
+        end
+        for i = view.first, view.last do
+            local name = playlist[i]
+            if flags[name] then
+                if i == selection.now then
+                    draw_frame(i, opts.selected_flagged_frame_color)
+                else
+                    draw_frame(i, opts.flagged_frame_color)
+                end
+            elseif i == selection.now then
+                draw_frame(i, opts.selected_frame_color)
+            end
+        end
+        
         if opts.show_filename then
-            box:new_event()
+            selection_ass:new_event()
+            local i = (selection.now - view.first)
             local an = 5
-            y = y + geometry.size_y + geometry.margin_y / 2
-            x = x + geometry.size_x / 2
+            local x = geometry.margin_x + (geometry.margin_x + geometry.size_x) * (i % geometry.columns) + geometry.size_x / 2
+            local y = geometry.margin_y + (geometry.margin_y + geometry.size_y) * math.floor(i / geometry.columns) + geometry.size_y + geometry.margin_y / 2
+            local col = i % geometry.columns
             if geometry.columns > 1 then
                 if col == 0 then
                     x = x - geometry.size_x / 2
@@ -534,10 +571,10 @@ do
                     an = 6
                 end
             end
-            box:an(an)
-            box:pos(x, y)
-            box:append(string.format("{\\fs%d}", opts.text_size))
-            box:append("{\\bord0}")
+            selection_ass:an(an)
+            selection_ass:pos(x, y)
+            selection_ass:append(string.format("{\\fs%d}", opts.text_size))
+            selection_ass:append("{\\bord0}")
             local f = playlist[selection.now]
             if opts.strip_directory then
                 if on_windows then
@@ -549,18 +586,18 @@ do
             if opts.strip_extension then
                 f = string.match(f, "(.+)%.[^.]+$") or f
             end
-            box:append(f)
+            selection_ass:append(f)
         end
-        ass.selection = box.text
+        ass.selection = selection_ass.text
     end
 
     function ass_show(selection, scrollbar, placeholders)
-        local merge = function(a, b)
-            return b ~= "" and (a .. "\n" .. b) or a
-        end
         if selection then refresh_selection() end
         if scrollbar then refresh_scrollbar() end
         if placeholders then refresh_placeholders() end
+        local merge = function(a, b)
+            return b ~= "" and (a .. "\n" .. b) or a
+        end
         mp.set_osd_ass(geometry.window_w, geometry.window_h,
             merge(merge(ass.selection, ass.scrollbar), ass.placeholders)
         )
@@ -709,6 +746,15 @@ mp.register_script_message("thumbnails-generator-broadcast", function(generator_
         if generator_name == g then return end
     end
     generators[#generators + 1] = generator_name
+end)
+
+mp.register_event("shutdown", function()
+    if next(flags) == nil then return end
+    local out = io.open(opts.flagged_file_path, "w")
+    for f, _ in pairs(flags) do
+        out:write(f .. "\n")
+    end
+    out:close()
 end)
 
 if opts.start_gallery_on_file_end then

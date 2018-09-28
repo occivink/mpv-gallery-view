@@ -38,6 +38,10 @@ for i in $(find . -name '*png'); do
 done
 ```
 
+# Flagging
+
+When the gallery is open, you can flag playlist entries (using `SPACE` by default). Flagged entries are indicated with a small frame. Then, when exiting mpv a text file will be created (default `./mpv_flagged`) containing the filenames of the flagged entries, one per line.
+
 # TODO
 
 * Add some kind of checkerboard pattern behind transparent thumbnails (ideally with an ffmpeg filter) (?).
