@@ -40,7 +40,7 @@ local opts = {
     selected_frame_color = "DDDDDD",
     flagged_frame_color = "5B9769",
     selected_flagged_frame_color = "BAFFCA",
-    flagged_file_path = "./mpv_flagged",
+    flagged_file_path = "./mpv_gallery_flagged",
 
     max_generators = 8,
 
@@ -748,14 +748,16 @@ mp.register_script_message("thumbnails-generator-broadcast", function(generator_
     generators[#generators + 1] = generator_name
 end)
 
-mp.register_event("shutdown", function()
+function write_flag_file()
     if next(flags) == nil then return end
     local out = io.open(opts.flagged_file_path, "w")
     for f, _ in pairs(flags) do
         out:write(f .. "\n")
     end
     out:close()
-end)
+end
+
+mp.register_event("shutdown", write_flag_file)
 
 if opts.start_gallery_on_file_end then
     mp.register_event("end-file", function()
@@ -766,3 +768,4 @@ if opts.start_gallery_on_file_end then
 end
 
 mp.add_key_binding("g", "gallery-view", toggle_gallery)
+mp.add_key_binding(nil, "gallery-write-flag-file", write_flag_file)
