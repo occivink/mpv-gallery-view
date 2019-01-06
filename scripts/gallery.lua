@@ -33,7 +33,7 @@ local opts = {
     background = "0.1",
 
     show_filename = true,
-    show_title = false,
+    show_title = true,
     strip_directory = true,
     strip_extension = true,
     text_size = 28,
@@ -297,7 +297,7 @@ do
             mp.add_forced_key_binding(key, "gallery-view-"..key, func)
         end
         for _, prop in ipairs({ "osd-width", "osd-height" }) do
-            mp.observe_property(prop, bool, window_size_changed)
+            mp.observe_property(prop, "native", window_size_changed)
         end
         mp.register_idle(idle_handler)
         mp.register_event("start-file", file_started)
