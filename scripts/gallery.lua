@@ -563,7 +563,7 @@ do
                 draw_frame(i, opts.selected_frame_color)
             end
         end
-        
+
         if opts.show_filename or opts.show_title then
             selection_ass:new_event()
             local i = (selection.now - view.first)
@@ -585,7 +585,7 @@ do
             selection_ass:append(string.format("{\\fs%d}", opts.text_size))
             selection_ass:append("{\\bord0}")
             local f = playlist[selection.now]
-            
+
             if opts.show_title and titles[f] then
                 f = titles[f]
             else
