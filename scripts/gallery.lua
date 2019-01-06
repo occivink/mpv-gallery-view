@@ -33,6 +33,7 @@ local opts = {
     background = "0.1",
 
     show_filename = true,
+    show_title = false,
     strip_directory = true,
     strip_extension = true,
     text_size = 28,
@@ -113,6 +114,7 @@ geometry = {
     margin_y = 0,
 }
 playlist = {}
+titles = {}
 view = { -- 1-based indices into the "playlist" array
     first = 0, -- must be equal to N*columns
     last = 0, -- must be > first_visible and <= first_visible + rows*columns
@@ -318,6 +320,7 @@ function save_and_clear_playlist()
     playlist = {}
     local cwd = utils.getcwd()
     for _, f in ipairs(mp.get_property_native("playlist")) do
+        title = f.title
         if string.find(f.filename, "://") then
             f = f.filename
         else
@@ -333,6 +336,10 @@ function save_and_clear_playlist()
             until n == 0
         end
         playlist[#playlist + 1]  = f
+
+        if title then
+            titles[f] = title
+        end
     end
     if opts.resume_when_picking then
         resume[playlist[mp.get_property_number("playlist-pos-1")]] = mp.get_property_number("time-pos")
@@ -341,8 +348,16 @@ function save_and_clear_playlist()
 end
 
 function restore_playlist_and_select(select)
-    mp.set_property_bool("pause", false)
-    mp.commandv("loadfile", playlist[select], "replace")
+    local pl = {"#EXTM3U"}
+    for i, file in ipairs(playlist) do
+        if titles[file] then
+            table.insert(pl,"#EXTINF:0,"..titles[file])
+        end
+        table.insert(pl,file)
+    end
+    mp.commandv("loadlist", "memory://"..table.concat(pl,"\n"), "replace")
+    mp.set_property_number("playlist-pos-1", select)
+
     if opts.resume_when_picking then
         local time = resume[playlist[select]]
         if time then
@@ -355,13 +370,7 @@ function restore_playlist_and_select(select)
             mp.register_event("file-loaded", func)
         end
     end
-    for i = 1, select - 1 do
-        mp.commandv("loadfile", playlist[i], "append")
-    end
-    for i = select + 1, #playlist do
-        mp.commandv("loadfile", playlist[i], "append")
-    end
-    mp.commandv("playlist-move", 0, select)
+
 end
 
 function restore_properties()
@@ -555,7 +564,7 @@ do
             end
         end
         
-        if opts.show_filename then
+        if opts.show_filename or opts.show_title then
             selection_ass:new_event()
             local i = (selection.now - view.first)
             local an = 5
@@ -576,15 +585,20 @@ do
             selection_ass:append(string.format("{\\fs%d}", opts.text_size))
             selection_ass:append("{\\bord0}")
             local f = playlist[selection.now]
-            if opts.strip_directory then
-                if on_windows then
-                    f = string.match(f, "([^\\/]+)$") or f
-                else
-                    f = string.match(f, "([^/]+)$") or f
+            
+            if opts.show_title and titles[f] then
+                f = titles[f]
+            else
+                if opts.strip_directory then
+                    if on_windows then
+                        f = string.match(f, "([^\\/]+)$") or f
+                    else
+                        f = string.match(f, "([^/]+)$") or f
+                    end
                 end
-            end
-            if opts.strip_extension then
-                f = string.match(f, "(.+)%.[^.]+$") or f
+                if opts.strip_extension then
+                    f = string.match(f, "(.+)%.[^.]+$") or f
+                end
             end
             selection_ass:append(f)
         end
