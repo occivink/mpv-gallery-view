@@ -16,6 +16,7 @@ local opts = {
     take_thumbnail_at = "20%",
 
     resume_when_picking = true,
+    start_gallery_on_startup = false,
     start_gallery_on_file_end = false,
     toggle_behaves_as_accept = true,
 
@@ -144,6 +145,7 @@ misc = {
     old_geometry = "",
     old_osd_level = "",
     old_background = "",
+    old_vid = "",
 }
 generators = {} -- list of generator scripts that have registered themselves
 
@@ -303,7 +305,7 @@ end
 function restore_playlist_and_select(select)
     mp.set_property_number("playlist-pos-1", select)
     if opts.resume_when_picking then
-        local time = resume[playlist[select]]
+        local time = resume[playlist[select].filename]
         if time then
             local tmp
             local func = function()
@@ -695,9 +697,6 @@ function start_gallery_view()
     init()
     playlist = mp.get_property_native("playlist")
     if #playlist == 0 then return end
-    if opts.resume_when_picking then
-        resume[playlist[mp.get_property_number("playlist-pos-1")]] = mp.get_property_number("time-pos")
-    end
     mp.observe_property("playlist", "native", playlist_changed)
 
     local ww, wh = mp.get_osd_size()
@@ -705,7 +704,12 @@ function start_gallery_view()
     if geometry.rows <= 0 or geometry.columns <= 0 then return end
 
     save_properties()
-    selection.old = mp.get_property_number("playlist-pos-1")
+
+    local pos = mp.get_property_number("playlist-pos-1")
+    if opts.resume_when_picking and pos then
+        resume[playlist[pos].filename] = mp.get_property_number("time-pos") or 0
+    end
+    selection.old = pos or 1
     selection.now = selection.old
     ensure_view_valid()
     setup_ui_handlers()
@@ -771,6 +775,15 @@ if opts.start_gallery_on_file_end then
             start_gallery_view()
         end
     end)
+end
+if opts.start_gallery_on_startup then
+    local autostart
+    autostart = function(_, v)
+        if v == 0 then return end
+        mp.unobserve_property(autostart)
+        start_gallery_view()
+    end
+    mp.observe_property("playlist-count", "number", autostart)
 end
 
 mp.add_key_binding("g", "gallery-view", toggle_gallery)
