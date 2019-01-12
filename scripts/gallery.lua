@@ -168,11 +168,15 @@ do
 end
 
 function file_exists(path)
-    local f = io.open(path, "r")
-    if f ~= nil then
-        io.close(f)
-        return true
+    if utils.file_info then -- 0.28+
+        local info = utils.file_info(path)
+        return info ~= nil and info.is_file
     else
+        local f = io.open(path, "r")
+        if f ~= nil then
+            io.close(f)
+            return true
+        end
         return false
     end
 end
