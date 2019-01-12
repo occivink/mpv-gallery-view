@@ -103,6 +103,7 @@ do local b,c,d,e,f;if bit32 then b,c,d,e,f=bit32.band,bit32.rrotate,bit32.bxor,b
 -- end of sha code
 
 active = false
+playlist = {} -- copy of the current "playlist" property
 geometry = {
     window_w = 0,
     window_h = 0,
@@ -113,14 +114,12 @@ geometry = {
     margin_x = 0,
     margin_y = 0,
 }
-playlist = {}
-titles = {}
 view = { -- 1-based indices into the "playlist" array
     first = 0, -- must be equal to N*columns
-    last = 0, -- must be > first_visible and <= first_visible + rows*columns
+    last = 0, -- must be > first and <= first + rows*columns
 }
 overlays = {
-    active = {}, -- array of 64 booleans indicating whether the corresponding overlay is currently shown
+    active = {}, -- array of 64 strings indicating the file associated to the current thumbnail (empty if no file)
     missing = {}, -- maps hashes of missing thumbnails to the index they should be shown at
 }
 selection = {
@@ -128,7 +127,7 @@ selection = {
     now = 0, -- the currently selected element
 }
 pending = {
-    selection = 0,
+    selection = -1,
     window_size_changed = false,
     deletion = false,
 }
@@ -211,7 +210,7 @@ function select_under_cursor()
 end
 
 function toggle_selection_flag()
-    local name = playlist[selection.now]
+    local name = playlist[selection.now].filename
     if flags[name] == nil then
         flags[name] = true
     else
@@ -222,7 +221,8 @@ end
 
 do
     local function increment_func(increment, clamp)
-        local new = pending.selection + increment
+        local new = pending.selection == -1 and selection.now or pending.selection
+        new = new + increment
         if new <= 0 or new > #playlist then
             if not clamp then return end
             new = math.max(1, math.min(new, #playlist))
@@ -248,48 +248,34 @@ do
         bindings[opts.FLAG]   = toggle_selection_flag
     if opts.mouse_support then
         bindings["MBTN_LEFT"]  = select_under_cursor
-        bindings["WHEEL_UP"]   = function() increment_func(- geometry.columns, false) end
-        bindings["WHEEL_DOWN"] = function() increment_func(  geometry.columns, false) end
+        bindings["WHEEL_UP"]   = function() increment_func(- geometry.columns, true) end
+        bindings["WHEEL_DOWN"] = function() increment_func(  geometry.columns, true) end
     end
 
     local function window_size_changed()
         pending.window_size_changed = true
     end
 
-    local function file_started()
-        quit_gallery_view(nil)
-    end
-
     local function idle_handler()
-        if pending.selection ~= selection.now then
+        if pending.selection ~= -1 then
             increment_selection(pending.selection)
+            pending.selection = -1
         end
         if pending.window_size_changed then
             pending.window_size_changed = false
-            local actually_changed = false
             local window_w, window_h = mp.get_osd_size()
-            local new_thumb_size = thumbnail_size_from_presets(window_w, window_h)
-            if new_thumb_size and (new_thumb_size[1] ~= opts.thumbnail_width or
-                new_thumb_size[2] ~= opts.thumbnail_height)
-            then
-                opts.thumbnail_width = new_thumb_size[1]
-                opts.thumbnail_height = new_thumb_size[2]
-                actually_changed = true
-            end
             if window_w ~= geometry.window_w or window_h ~= geometry.window_h then
-                actually_changed = true
-            end
-            if actually_changed then
                 resize_gallery(window_w, window_h)
             end
         end
         if pending.deletion then
             pending.deletion = false
-            remove_selected()
+            mp.commandv("playlist-remove", selection.now - 1)
+            selection.now = selection.now + (selection.now == #playlist and -1 or 1)
         end
     end
 
-    function setup_handlers()
+    function setup_ui_handlers()
         for key, func in pairs(bindings_repeat) do
             mp.add_forced_key_binding(key, "gallery-view-"..key, func, {repeatable = true})
         end
@@ -300,10 +286,9 @@ do
             mp.observe_property(prop, "native", window_size_changed)
         end
         mp.register_idle(idle_handler)
-        mp.register_event("start-file", file_started)
     end
 
-    function teardown_handlers()
+    function teardown_ui_handlers()
         for key, _ in pairs(bindings_repeat) do
             mp.remove_key_binding("gallery-view-"..key)
         end
@@ -312,52 +297,11 @@ do
         end
         mp.unobserve_property(window_size_changed)
         mp.unregister_idle(idle_handler)
-        mp.unregister_event(file_started)
     end
-end
-
-function save_and_clear_playlist()
-    playlist = {}
-    local cwd = utils.getcwd()
-    for _, f in ipairs(mp.get_property_native("playlist")) do
-        title = f.title
-        if string.find(f.filename, "://") then
-            f = f.filename
-        else
-            f = utils.join_path(cwd, f.filename)
-            -- attempt basic path normalization
-            if on_windows then
-                f = string.gsub(f, "\\", "/")
-            end
-            f = string.gsub(f, "/%./", "/")
-            local n
-            repeat
-                f, n = string.gsub(f, "/[^/]*/%.%./", "/", 1)
-            until n == 0
-        end
-        playlist[#playlist + 1]  = f
-
-        if title then
-            titles[f] = title
-        end
-    end
-    if opts.resume_when_picking then
-        resume[playlist[mp.get_property_number("playlist-pos-1")]] = mp.get_property_number("time-pos")
-    end
-    mp.command("stop")
 end
 
 function restore_playlist_and_select(select)
-    local pl = {"#EXTM3U"}
-    for i, file in ipairs(playlist) do
-        if titles[file] then
-            table.insert(pl,"#EXTINF:0,"..titles[file])
-        end
-        table.insert(pl,file)
-    end
-    mp.commandv("loadlist", "memory://"..table.concat(pl,"\n"), "replace")
     mp.set_property_number("playlist-pos-1", select)
-
     if opts.resume_when_picking then
         local time = resume[playlist[select]]
         if time then
@@ -370,7 +314,6 @@ function restore_playlist_and_select(select)
             mp.register_event("file-loaded", func)
         end
     end
-
 end
 
 function restore_properties()
@@ -379,6 +322,8 @@ function restore_properties()
     mp.set_property("geometry", misc.old_geometry)
     mp.set_property("osd-level", misc.old_osd_level)
     mp.set_property("background", misc.old_background)
+    mp.set_property("vid", misc.old_vid)
+    mp.set_property_bool("pause", false)
     mp.commandv("script-message", "osc-visibility", "auto", "true")
 end
 
@@ -388,89 +333,96 @@ function save_properties()
     misc.old_geometry = mp.get_property("geometry")
     misc.old_osd_level = mp.get_property("osd-level")
     misc.old_background = mp.get_property("background")
+    misc.old_vid = mp.get_property("vid")
+    mp.set_property_bool("pause", true)
     mp.set_property_bool("idle", true)
     mp.set_property_bool("force-window", true)
     mp.set_property_number("osd-level", 0)
     mp.set_property("background", opts.background)
+    mp.set_property("vid", "no")
     mp.commandv("no-osd", "script-message", "osc-visibility", "never", "true")
     mp.set_property("geometry", geometry.window_w .. "x" .. geometry.window_h)
 end
 
-function get_geometry(window_w, window_h)
+function compute_geometry(ww, wh)
+    geometry.window_w, geometry.window_h = ww, wh
+
+    local dyn_thumb_size = thumbnail_size_from_presets(ww, wh)
+    if dyn_thumb_size then
+        geometry.size_x = dyn_thumb_size[1]
+        geometry.size_y = dyn_thumb_size[2]
+    else
+        geometry.size_x = opts.thumbnail_width
+        geometry.size_y = opts.thumbnail_height
+    end
+
     local margin_y = opts.show_filename and math.max(opts.text_size, opts.margin_y) or opts.margin_y
-    geometry.window_w, geometry.window_h = window_w, window_h
-    geometry.size_x = opts.thumbnail_width
-    geometry.size_y = opts.thumbnail_height
-    geometry.rows = math.floor((geometry.window_h - margin_y) / (geometry.size_y + margin_y))
-    geometry.columns = math.floor((geometry.window_w - opts.margin_x) / (geometry.size_x + opts.margin_x))
+    geometry.rows = math.floor((wh - margin_y) / (geometry.size_y + margin_y))
+    geometry.columns = math.floor((ww - opts.margin_x) / (geometry.size_x + opts.margin_x))
     if (geometry.rows * geometry.columns > opts.max_thumbnails) then
         local r = math.sqrt(geometry.rows * geometry.columns / opts.max_thumbnails)
         geometry.rows = math.floor(geometry.rows / r)
         geometry.columns = math.floor(geometry.columns / r)
     end
-    geometry.margin_x = (geometry.window_w - geometry.columns * geometry.size_x) / (geometry.columns + 1)
-    geometry.margin_y = (geometry.window_h - geometry.rows * geometry.size_y) / (geometry.rows + 1)
+    geometry.margin_x = (ww - geometry.columns * geometry.size_x) / (geometry.columns + 1)
+    geometry.margin_y = (wh - geometry.rows * geometry.size_y) / (geometry.rows + 1)
 end
 
 function increment_selection(inc)
     selection.now = inc
-    pending.selection = inc
-    max_thumbs = geometry.rows * geometry.columns
-    if selection.now < view.first or selection.now > view.last then
-        if selection.now < view.first then
-            view.first = math.floor((selection.now - 1) / geometry.columns) * geometry.columns + 1
-            view.last = math.min(view.first + max_thumbs - 1, #playlist)
-        else
-            view.last = (math.floor((selection.now - 1) / geometry.columns) + 1) * geometry.columns
-            view.first = view.last - max_thumbs + 1
-            if view.last > #playlist then
-                remove_overlays(max_thumbs - (view.last - #playlist) + 1, max_thumbs)
-                view.last = #playlist
-            end
-        end
-        show_overlays(1, view.last - view.first + 1)
-    end
+    ensure_view_valid()
+    refresh_overlays(false)
     ass_show(true, true, true)
 end
 
 function resize_gallery(window_w, window_h)
-    local old_max_thumbs = geometry.rows * geometry.columns
-    get_geometry(window_w, window_h)
-    local max_thumbs = geometry.rows * geometry.columns
+    compute_geometry(window_w, window_h)
     if geometry.rows <= 0 or geometry.columns <= 0 then
         quit_gallery_view(selection.old)
         return
-    elseif max_thumbs ~= old_max_thumbs then
-        center_view_on_selection()
-        remove_overlays(view.last - view.first + 2, old_max_thumbs)
     end
-    show_overlays(1, view.last - view.first + 1)
+    ensure_view_valid()
+    refresh_overlays(true)
     ass_show(true, true, true)
 end
 
-function remove_selected()
-    if #playlist < 2 then return end
-    flags[playlist[selection.now]] = nil
-    table.remove(playlist, selection.now)
-    selection.old = math.min(selection.old, #playlist)
-    view.last = math.min(view.last, #playlist)
-    if selection.now > #playlist then
-        increment_selection(selection.now - 1)
-    else
-        -- this is wrong
-        show_overlays(selection.now - view.first + 1, view.last - view.first + 1)
-        ass_show(true, true, true)
-    end
-    remove_overlay(view.last - view.first + 2)
-end
+-- makes sure that view.first and view.last are valid with regards to the playlist
+-- and that selection.now is within the view
+-- to be called after the playlist, view or selection was modified somehow
+function ensure_view_valid()
+    local selection_row = math.floor((selection.now - 1) / geometry.columns)
+    local max_thumbs = geometry.rows * geometry.columns
 
-function center_view_on_selection()
-    view.first = math.floor((selection.now - 1) / geometry.columns) * geometry.columns + 1
-    view.last = view.first + geometry.rows * geometry.columns - 1
-    if view.last > #playlist then
-        local last_row = math.floor((#playlist - 1) / geometry.columns)
+    if view.last >= #playlist then
         view.last = #playlist
-        view.first = math.max(1, (last_row - geometry.rows + 1) * geometry.columns + 1)
+        last_row = math.floor((view.last - 1) / geometry.columns)
+        first_row = math.max(0, last_row - geometry.rows + 1)
+        view.first = 1 + first_row * geometry.columns
+    elseif view.first == 0 or view.last == 0 or view.last - view.first + 1 ~= max_thumbs then
+        -- special case: the number of possible thumbnails was changed
+        -- just recreate the view such that the selection is in the middle row
+        local max_row = (#playlist - 1) / geometry.columns + 1
+        local row_first = selection_row - math.floor((geometry.rows - 1) / 2)
+        local row_last = selection_row + math.floor((geometry.rows - 1) / 2) + geometry.rows % 2
+        if row_first < 0 then
+            row_first = 0
+        elseif row_last > max_row then
+            row_first = max_row - geometry.rows + 1
+        end
+        view.first = 1 + row_first * geometry.columns
+        view.last = math.min(#playlist, view.first - 1 + max_thumbs)
+        return
+    end
+
+    if selection.now < view.first then
+        -- the selection is now on the first line
+        view.first = selection_row * geometry.columns + 1
+        view.last = math.min(#playlist, view.first + max_thumbs - 1)
+    elseif selection.now > view.last then
+        -- the selection is now on the last line
+        view.last = (selection_row + 1) * geometry.columns
+        view.first = math.max(1, view.last - max_thumbs + 1)
+        view.last = math.min(#playlist, view.last)
     end
 end
 
@@ -486,7 +438,7 @@ do
         a:pos(0, 0)
         a:draw_start()
         for i = 0, view.last - view.first do
-            if opts.always_show_placeholders or (not overlays.active[i + 1]) then
+            if opts.always_show_placeholders or overlays.active[i + 1] == "" then
                 local x = geometry.margin_x + (geometry.margin_x + geometry.size_x) * (i % geometry.columns)
                 local y = geometry.margin_y + (geometry.margin_y + geometry.size_y) * math.floor(i / geometry.columns)
                 a:rect_cw(x, y, x + geometry.size_x, y + geometry.size_y)
@@ -552,7 +504,7 @@ do
             selection_ass:draw_stop()
         end
         for i = view.first, view.last do
-            local name = playlist[i]
+            local name = playlist[i].filename
             if flags[name] then
                 if i == selection.now then
                     draw_frame(i, opts.selected_flagged_frame_color)
@@ -584,11 +536,12 @@ do
             selection_ass:pos(x, y)
             selection_ass:append(string.format("{\\fs%d}", opts.text_size))
             selection_ass:append("{\\bord0}")
-            local f = playlist[selection.now]
-
-            if opts.show_title and titles[f] then
-                f = titles[f]
+            local f
+            local element = playlist[selection.now]
+            if opts.show_title and element.title then
+                f = element.title
             else
+                f = element.filename
                 if opts.strip_directory then
                     if on_windows then
                         f = string.match(f, "([^\\/]+)$") or f
@@ -622,20 +575,44 @@ do
     end
 end
 
--- 1-based indices
-function show_overlays(from, to)
+function normalize_path(path)
+    if string.find(path, "://") then
+        return path
+    end
+    path = utils.join_path(utils.getcwd(), path)
+    if on_windows then
+        path = string.gsub(path, "\\", "/")
+    end
+    path = string.gsub(path, "/%./", "/")
+    local n
+    repeat
+        path, n = string.gsub(path, "/[^/]*/%.%./", "/", 1)
+    until n == 0
+    return path
+end
+
+function refresh_overlays(force)
     local todo = {}
     overlays.missing = {}
-    for i = from, to do
-        local filename = playlist[view.first + i - 1]
-        local filename_hash = string.sub(sha256(filename), 1, 12)
-        local thumb_filename = string.format("%s_%d_%d", filename_hash, geometry.size_x, geometry.size_y)
-        local thumb_path = utils.join_path(opts.thumbs_dir, thumb_filename)
-        if file_exists(thumb_path) then
-            show_overlay(i, thumb_path)
+    for i = 1, 64 do
+        local index = view.first + i - 1
+        if index <= view.last then
+            local filename = playlist[index].filename
+            if force or overlays.active[i] ~= filename then
+                local filename_hash = string.sub(sha256(normalize_path(filename)), 1, 12)
+                local thumb_filename = string.format("%s_%d_%d", filename_hash, geometry.size_x, geometry.size_y)
+                local thumb_path = utils.join_path(opts.thumbs_dir, thumb_filename)
+                if file_exists(thumb_path) then
+                    show_overlay(i, thumb_path)
+                    overlays.active[i] = filename
+                else
+                    remove_overlay(i)
+                    overlays.missing[thumb_path] = { index = i, input = filename }
+                    todo[#todo + 1] = { input = filename, output = thumb_path }
+                end
+            end
         else
             remove_overlay(i)
-            todo[#todo + 1] = { index = i, input = filename, output = thumb_path }
         end
     end
     -- reverse iterate so that the first thumbnail is at the top of the stack
@@ -643,12 +620,11 @@ function show_overlays(from, to)
         for i = #todo, 1, -1 do
             local generator = generators[i % #generators + 1]
             local t = todo[i]
-            overlays.missing[t.output] = t.index
             mp.commandv("script-message-to", generator, "push-thumbnail-front",
                 mp.get_script_name(),
                 t.input,
-                tostring(opts.thumbnail_width),
-                tostring(opts.thumbnail_height),
+                tostring(geometry.size_x),
+                tostring(geometry.size_y),
                 opts.take_thumbnail_at,
                 t.output,
                 opts.generate_thumbnails_with_mpv and "true" or "false"
@@ -660,7 +636,6 @@ end
 function show_overlay(index_1, thumb_path)
     local g = geometry
     local index_0 = index_1 - 1
-    overlays.active[index_1] = true
     mp.command(string.format("overlay-add %i %i %i %s 0 bgra %i %i %i;",
         index_0,
         g.margin_x + (g.margin_x + g.size_x) * (index_0 % g.columns),
@@ -671,62 +646,78 @@ function show_overlay(index_1, thumb_path)
     mp.osd_message("", 0.01)
 end
 
--- 1-based indices
-function remove_overlays(from, to)
-    for i = to, from, -1 do
+function remove_overlays()
+    for i = 1, 64 do
         remove_overlay(i)
     end
+    overlays.missing = {}
 end
 
 function remove_overlay(index_1)
-    if overlays.active[index_1] then
-        overlays.active[index_1] = false
-        mp.command("overlay-remove " .. index_1 - 1)
-        mp.osd_message("", 0.01)
+    if overlays.active[index_1] == "" then return end
+    overlays.active[index_1] = ""
+    mp.command("overlay-remove " .. index_1 - 1)
+    mp.osd_message("", 0.01)
+end
+
+function playlist_changed(key, value)
+    local did_change = function()
+        if #playlist ~= #value then return true end
+        for i = 1, #playlist do
+            if playlist[i].filename ~= value[i].filename then return true end
+        end
+        return false
     end
+    if not did_change() then return end
+    if #value == 0 then
+        quit_gallery_view()
+        return
+    end
+    local sel_old_file = playlist[selection.old].filename
+    local sel_new_file = playlist[selection.now].filename
+    playlist = value
+    selection.old = math.max(1, math.min(selection.old, #playlist))
+    selection.now = math.max(1, math.min(selection.now, #playlist))
+    for i, f in ipairs(playlist) do
+        if sel_old_file == f.filename then
+            selection.old = i
+        end
+        if sel_new_file == f.filename then
+            selection.now = i
+        end
+    end
+    ensure_view_valid()
+    refresh_overlays(false)
+    ass_show(true, true, true)
 end
 
 function start_gallery_view()
     init()
-    if mp.get_property_number("playlist-count") == 0 then return end
-    local w, h = mp.get_osd_size()
-    local new_thumb_size = thumbnail_size_from_presets(w, h)
-    if new_thumb_size then
-        opts.thumbnail_width = new_thumb_size[1]
-        opts.thumbnail_height = new_thumb_size[2]
+    playlist = mp.get_property_native("playlist")
+    if #playlist == 0 then return end
+    if opts.resume_when_picking then
+        resume[playlist[mp.get_property_number("playlist-pos-1")]] = mp.get_property_number("time-pos")
     end
-    local old_max_thumbs = geometry.rows * geometry.columns
-    get_geometry(w, h)
+    mp.observe_property("playlist", "native", playlist_changed)
+
+    local ww, wh = mp.get_osd_size()
+    compute_geometry(ww, wh)
     if geometry.rows <= 0 or geometry.columns <= 0 then return end
+
     save_properties()
     selection.old = mp.get_property_number("playlist-pos-1")
     selection.now = selection.old
-    pending.selection = selection.now
-    local old_playlist_size = #playlist
-    local max_thumbs = geometry.rows * geometry.columns
-    save_and_clear_playlist()
-    local selection_row = math.floor((selection.now - 1) / geometry.columns)
-    if max_thumbs ~= old_max_thumbs or old_playlist_size ~= #playlist then
-        center_view_on_selection()
-    elseif selection.now < view.first then
-        -- the selection is now on the first line
-        view.first = selection_row * geometry.columns + 1
-        view.last = math.min(#playlist, view.first + max_thumbs - 1)
-    elseif selection.now > view.last then
-        -- the selection is now on the last line
-        view.last = (selection_row + 1) * geometry.columns
-        view.first = math.max(1, view.last - max_thumbs + 1)
-        view.last = math.min(#playlist, view.last)
-    end
-    setup_handlers()
-    show_overlays(1, view.last - view.first + 1)
+    ensure_view_valid()
+    setup_ui_handlers()
+    refresh_overlays(true)
     ass_show(true, true, true)
     active = true
 end
 
 function quit_gallery_view(select)
-    teardown_handlers()
-    remove_overlays(1, view.last - view.first + 1)
+    teardown_ui_handlers()
+    remove_overlays()
+    mp.unobserve_property(playlist_changed)
     ass_hide()
     if select then
         restore_playlist_and_select(select)
@@ -745,9 +736,10 @@ end
 
 mp.register_script_message("thumbnail-generated", function(thumbnail_path)
     if not active then return end
-    local index_missing = overlays.missing[thumbnail_path]
-    if index_missing == nil then return end
-    show_overlay(index_missing, thumbnail_path)
+    local missing = overlays.missing[thumbnail_path]
+    if missing == nil then return end
+    show_overlay(missing.index, thumbnail_path)
+    overlays.active[missing.index] = missing.input
     if not opts.always_show_placeholders then
         ass_show(false, false, true)
     end
