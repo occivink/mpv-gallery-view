@@ -774,12 +774,14 @@ if opts.start_gallery_on_file_end then
 end
 if opts.start_gallery_on_startup then
     local autostart
-    autostart = function(_, v)
-        if v == 0 then return end
-        mp.unobserve_property(autostart)
+    autostart = function()
+        if mp.get_property_number("playlist-count") == 0 then return end
+        if mp.get_property_number("osd-width") <= 0 then return end
         start_gallery_view()
+        mp.unobserve_property(autostart)
     end
     mp.observe_property("playlist-count", "number", autostart)
+    mp.observe_property("osd-width", "number", autostart)
 end
 
 mp.add_key_binding("g", "gallery-view", toggle_gallery)
