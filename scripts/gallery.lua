@@ -264,14 +264,24 @@ do
 
     local function idle_handler()
         if pending.selection ~= -1 then
-            increment_selection(pending.selection)
+            selection.now = pending.selection
             pending.selection = -1
+            ensure_view_valid()
+            refresh_overlays(false)
+            ass_show(true, true, true)
         end
         if pending.window_size_changed then
             pending.window_size_changed = false
             local window_w, window_h = mp.get_osd_size()
             if window_w ~= geometry.window_w or window_h ~= geometry.window_h then
-                resize_gallery(window_w, window_h)
+                compute_geometry(window_w, window_h)
+                if geometry.rows <= 0 or geometry.columns <= 0 then
+                    quit_gallery_view(selection.old)
+                    return
+                end
+                ensure_view_valid()
+                refresh_overlays(true)
+                ass_show(true, true, true)
             end
         end
         if pending.deletion then
@@ -372,24 +382,6 @@ function compute_geometry(ww, wh)
     end
     geometry.margin_x = (ww - geometry.columns * geometry.size_x) / (geometry.columns + 1)
     geometry.margin_y = (wh - geometry.rows * geometry.size_y) / (geometry.rows + 1)
-end
-
-function increment_selection(inc)
-    selection.now = inc
-    ensure_view_valid()
-    refresh_overlays(false)
-    ass_show(true, true, true)
-end
-
-function resize_gallery(window_w, window_h)
-    compute_geometry(window_w, window_h)
-    if geometry.rows <= 0 or geometry.columns <= 0 then
-        quit_gallery_view(selection.old)
-        return
-    end
-    ensure_view_valid()
-    refresh_overlays(true)
-    ass_show(true, true, true)
 end
 
 -- makes sure that view.first and view.last are valid with regards to the playlist
