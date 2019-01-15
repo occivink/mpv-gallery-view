@@ -324,18 +324,28 @@ function resume_playback(select)
         mp.set_property("sid", s and s.sid or "1")
         mp.set_property_bool("pause", false)
     else
-        if s and opts.resume_when_picking then
+        if s then
             local func
             func = function()
-                mp.commandv("seek", s.time, "absolute")
+                local change_maybe = function(prop, val)
+                    if val ~= mp.get_property(prop) then
+                        mp.set_property(prop,val)
+                    end
+                end
+                change_maybe("vid", s.vid)
+                change_maybe("aid", s.aid)
+                change_maybe("sid", s.sid)
+                if opts.resume_when_picking then
+                    mp.commandv("seek", s.time, "absolute")
+                end
                 mp.unregister_event(func)
             end
             mp.register_event("file-loaded", func)
         end
         mp.set_property("playlist-pos-1", select)
-        mp.set_property("vid", s and s.vid or "1")
-        mp.set_property("aid", s and s.aid or "1")
-        mp.set_property("sid", s and s.sid or "1")
+        mp.set_property("vid", "1")
+        mp.set_property("aid", "1")
+        mp.set_property("sid", "1")
         mp.set_property_bool("pause", false)
     end
 end
@@ -711,9 +721,9 @@ function start_gallery_view()
         if opts.resume_when_picking then
             s.time = mp.get_property_number("time-pos") or 0
         end
-        s.vid = mp.get_property("vid") or "1"
-        s.aid = mp.get_property("aid") or "1"
-        s.sid = mp.get_property("sid") or "1"
+        s.vid = mp.get_property_number("vid") or "1"
+        s.aid = mp.get_property_number("aid") or "1"
+        s.sid = mp.get_property_number("sid") or "1"
         resume[playlist[pos].filename] = s
         mp.set_property("vid", "no")
         mp.set_property("aid", "no")
