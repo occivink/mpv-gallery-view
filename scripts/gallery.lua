@@ -702,7 +702,8 @@ function playlist_changed(key, value)
     ass_show(true, true, true)
 end
 
-function start_gallery_view()
+function start_gallery_view(record_time)
+    if active then return end
     init()
     playlist = mp.get_property_native("playlist")
     if #playlist == 0 then return end
@@ -719,7 +720,7 @@ function start_gallery_view()
         local s = {}
         mp.set_property_bool("pause", true)
         if opts.resume_when_picking then
-            s.time = mp.get_property_number("time-pos") or 0
+            s.time = record_time and mp.get_property_number("time-pos") or 0
         end
         s.vid = mp.get_property_number("vid") or "1"
         s.aid = mp.get_property_number("aid") or "1"
@@ -750,6 +751,7 @@ function start_gallery_view()
 end
 
 function quit_gallery_view(select)
+    if not active then return end
     teardown_ui_handlers()
     remove_overlays()
     mp.unobserve_property(playlist_changed)
@@ -763,7 +765,7 @@ end
 
 function toggle_gallery()
     if not active then
-        start_gallery_view()
+        start_gallery_view(true)
     else
         quit_gallery_view(opts.toggle_behaves_as_accept and selection.now or selection.old)
     end
@@ -801,9 +803,10 @@ end
 mp.register_event("shutdown", write_flag_file)
 
 if opts.start_gallery_on_file_end then
-    mp.register_event("end-file", function()
-        if not active and mp.get_property_number("playlist-count") > 1 then
-            start_gallery_view()
+    mp.observe_property("eof-reached", "bool", function(_, val)
+        if val and mp.get_property_number("playlist-count") > 1 then
+            start_gallery_view(false)
+
         end
     end)
 end
@@ -812,7 +815,7 @@ if opts.start_gallery_on_startup then
     autostart = function()
         if mp.get_property_number("playlist-count") == 0 then return end
         if mp.get_property_number("osd-width") <= 0 then return end
-        start_gallery_view()
+        start_gallery_view(false)
         mp.unobserve_property(autostart)
     end
     mp.observe_property("playlist-count", "number", autostart)
