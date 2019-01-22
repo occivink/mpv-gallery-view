@@ -119,6 +119,7 @@ view = { -- 1-based indices into the "playlist" array
     first = 0, -- must be equal to N*columns
     last = 0, -- must be > first and <= first + rows*columns
 }
+hash_cache = {}
 overlays = {
     active = {}, -- array of 64 strings indicating the file associated to the current thumbnail (empty if no file)
     missing = {}, -- maps hashes of missing thumbnails to the index they should be shown at
@@ -610,7 +611,11 @@ function refresh_overlays(force)
         if index <= view.last then
             local filename = playlist[index].filename
             if force or overlays.active[i] ~= filename then
-                local filename_hash = string.sub(sha256(normalize_path(filename)), 1, 12)
+                local filename_hash = hash_cache[filename]
+                if filename_hash == nil then
+                    filename_hash = string.sub(sha256(normalize_path(filename)), 1, 12)
+                    hash_cache[filename] = filename_hash
+                end
                 local thumb_filename = string.format("%s_%d_%d", filename_hash, geometry.size_x, geometry.size_y)
                 local thumb_path = utils.join_path(opts.thumbs_dir, thumb_filename)
                 if file_exists(thumb_path) then
