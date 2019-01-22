@@ -617,8 +617,8 @@ function refresh_overlays(force)
                     show_overlay(i, thumb_path)
                     overlays.active[i] = filename
                 else
-                    remove_overlay(i)
                     overlays.missing[thumb_path] = { index = i, input = filename }
+                    remove_overlay(i)
                     todo[#todo + 1] = { input = filename, output = thumb_path }
                 end
             end
@@ -647,13 +647,16 @@ end
 function show_overlay(index_1, thumb_path)
     local g = geometry
     local index_0 = index_1 - 1
-    mp.command(string.format("overlay-add %i %i %i %s 0 bgra %i %i %i;",
-        index_0,
-        g.margin_x + (g.margin_x + g.size_x) * (index_0 % g.columns),
-        g.margin_y + (g.margin_y + g.size_y) * math.floor(index_0 / g.columns),
+    mp.commandv("overlay-add",
+        tostring(index_0),
+        tostring(math.floor(g.margin_x + (g.margin_x + g.size_x) * (index_0 % g.columns))),
+        tostring(math.floor(g.margin_y + (g.margin_y + g.size_y) * math.floor(index_0 / g.columns))),
         thumb_path,
-        g.size_x, g.size_y, 4*g.size_x
-    ))
+        "0",
+        "bgra",
+        tostring(g.size_x),
+        tostring(g.size_y),
+        tostring(4*g.size_x))
     mp.osd_message("", 0.01)
 end
 
