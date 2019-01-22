@@ -654,8 +654,8 @@ function show_overlay(index_1, thumb_path)
     local index_0 = index_1 - 1
     mp.commandv("overlay-add",
         tostring(index_0),
-        tostring(math.floor(g.margin_x + (g.margin_x + g.size_x) * (index_0 % g.columns))),
-        tostring(math.floor(g.margin_y + (g.margin_y + g.size_y) * math.floor(index_0 / g.columns))),
+        tostring(math.floor(0.5 + g.margin_x + (g.margin_x + g.size_x) * (index_0 % g.columns))),
+        tostring(math.floor(0.5 + g.margin_y + (g.margin_y + g.size_y) * math.floor(index_0 / g.columns))),
         thumb_path,
         "0",
         "bgra",
