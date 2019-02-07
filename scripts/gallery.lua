@@ -145,6 +145,7 @@ misc = {
     old_geometry = "",
     old_osd_level = "",
     old_background = "",
+    old_idle = "",
 }
 generators = {} -- list of generator scripts that have registered themselves
 
@@ -357,6 +358,7 @@ function restore_properties()
     mp.set_property("geometry", misc.old_geometry)
     mp.set_property("osd-level", misc.old_osd_level)
     mp.set_property("background", misc.old_background)
+    mp.set_property("idle", misc.old_idle)
     mp.commandv("script-message", "osc-visibility", "auto", "true")
 end
 
@@ -366,10 +368,12 @@ function save_properties()
     misc.old_geometry = mp.get_property("geometry")
     misc.old_osd_level = mp.get_property("osd-level")
     misc.old_background = mp.get_property("background")
+    misc.old_idle = mp.get_property("idle")
     mp.set_property_bool("force-window", true)
     mp.set_property_bool("track-auto-selection", false)
     mp.set_property_number("osd-level", 0)
     mp.set_property("background", opts.background)
+    mp.set_property_bool("idle", true)
     mp.commandv("no-osd", "script-message", "osc-visibility", "never", "true")
     mp.set_property("geometry", geometry.window_w .. "x" .. geometry.window_h)
 end
