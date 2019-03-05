@@ -40,6 +40,7 @@ local opts = {
     text_size = 28,
 
     selected_frame_color = "DDDDDD",
+    frame_roundness = 5,
     flagged_frame_color = "5B9769",
     selected_flagged_frame_color = "BAFFCA",
     flagged_file_path = "./mpv_gallery_flagged",
@@ -498,7 +499,7 @@ do
         scrollbar:append('{\\1c&AAAAAA&}')
         scrollbar:pos(0, 0)
         scrollbar:draw_start()
-        scrollbar:round_rect_cw(x1, y1, x2, y2, 2)
+        scrollbar:round_rect_cw(x1, y1, x2, y2, opts.frame_roundness)
         scrollbar:draw_stop()
         ass.scrollbar = scrollbar.text
     end
@@ -516,7 +517,7 @@ do
             selection_ass:append('{\\1a&FF&}')
             selection_ass:pos(0, 0)
             selection_ass:draw_start()
-            selection_ass:round_rect_cw(x, y, x + geometry.size_x, y + geometry.size_y, 2)
+            selection_ass:round_rect_cw(x, y, x + geometry.size_x, y + geometry.size_y, opts.frame_roundness)
             selection_ass:draw_stop()
         end
         for i = view.first, view.last do
