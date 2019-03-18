@@ -208,6 +208,10 @@ function generate_thumbnail(thumbnail_job)
     local res = utils.subprocess({ args = command, cancellable = false })
     --"atomically" generate the output to avoid loading half-generated thumbnails (results in crashes)
     if res.status == 0 then
+        local info = utils.file_info(tmp_output_path)
+        if not info or info.size == 0 then
+            return false
+        end
         if os.rename(tmp_output_path, thumbnail_job.output_path) then
             return true
         end
