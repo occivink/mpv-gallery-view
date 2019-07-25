@@ -685,6 +685,7 @@ function remove_overlay(index_1)
 end
 
 function playlist_changed(key, value)
+    if not active then return end
     local did_change = function()
         if #playlist ~= #value then return true end
         for i = 1, #playlist do
@@ -725,7 +726,6 @@ function start_gallery_view(record_time)
     compute_geometry(ww, wh)
     if geometry.rows <= 0 or geometry.columns <= 0 then return end
 
-    mp.observe_property("playlist", "native", playlist_changed)
     save_properties()
 
     local pos = mp.get_property_number("playlist-pos-1")
@@ -767,7 +767,6 @@ function quit_gallery_view(select)
     if not active then return end
     teardown_ui_handlers()
     remove_overlays()
-    mp.unobserve_property(playlist_changed)
     ass_hide()
     if select then
         resume_playback(select)
@@ -834,6 +833,9 @@ if opts.start_gallery_on_startup then
     mp.observe_property("playlist-count", "number", autostart)
     mp.observe_property("osd-width", "number", autostart)
 end
+
+-- workaround for mpv bug #6823
+mp.observe_property("playlist", "native", playlist_changed)
 
 mp.add_key_binding("g", "gallery-view", toggle_gallery)
 mp.add_key_binding(nil, "gallery-write-flag-file", write_flag_file)
