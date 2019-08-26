@@ -648,6 +648,7 @@ function refresh_overlays(force)
                 tostring(geometry.size_y),
                 opts.take_thumbnail_at,
                 t.output,
+                "false", -- accurate
                 opts.generate_thumbnails_with_mpv and "true" or "false"
             )
         end

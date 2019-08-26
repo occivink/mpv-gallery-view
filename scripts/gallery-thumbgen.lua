@@ -123,7 +123,7 @@ function ytdl_thumbnail_url(input_path)
     return json.thumbnail
 end
 
-function thumbnail_command(input_path, width, height, take_thumbnail_at, output_path, with_mpv)
+function thumbnail_command(input_path, width, height, take_thumbnail_at, output_path, accurate, with_mpv)
     local vf = string.format("%s,%s",
         string.format("scale=iw*min(1\\,min(%d/iw\\,%d/ih)):-2", width, height),
         string.format("pad=%d:%d:(%d-iw)/2:(%d-ih)/2:color=0x00000000", width, height, width, height)
@@ -153,12 +153,15 @@ function thumbnail_command(input_path, width, height, take_thumbnail_at, output_
                     if duration then
                         local percent = tonumber(string.sub(take_thumbnail_at, 1, -2))
                         local start = tostring(duration * percent / 100)
-                        add({ "-ss", start, "-noaccurate_seek" })
+                        add({ "-ss", start })
                     end
                 end
             else
-                add({ "-ss", tonumber(take_thumbnail_at), "-noaccurate_seek" })
+                add({ "-ss", tonumber(take_thumbnail_at) })
             end
+        end
+        if not accurate then
+            add({"-noaccurate_seek"})
         end
         add({
             "-i", input_path,
@@ -202,6 +205,7 @@ function generate_thumbnail(thumbnail_job)
         thumbnail_job.height,
         thumbnail_job.take_thumbnail_at,
         tmp_output_path,
+        thumbnail_job.accurate,
         thumbnail_job.with_mpv
     )
 
@@ -233,6 +237,7 @@ function handle_events(wait)
                     height = tonumber(e.args[5]),
                     take_thumbnail_at = e.args[6],
                     output_path = e.args[7],
+                    accurate = (e.args[7] == "true"),
                     with_mpv = (e.args[8] == "true"),
                 }
                 if e.args[1] == "push-thumbnail-front" then
