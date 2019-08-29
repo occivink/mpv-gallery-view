@@ -172,9 +172,10 @@ local gallery = {
         scrollbar = "",
         placeholders = "",
     },
-    item_to_overlay_path = function(item) return nil end,
+    item_to_overlay_path = function(item) return "" end,
+    item_to_thumbnail_params = function(item) return "", 0 end,
     item_to_text = function(item) return "" end,
-    item_to_border = function(item) return nil end,
+    item_to_border = function(item) return 0, "" end,
     generators = {} -- list of generator scripts
 }
 
@@ -263,7 +264,6 @@ do
         for key, _ in pairs(bindings) do
             mp.remove_key_binding("gallery-view-"..key)
         end
-        mp.unobserve_property(geometry_changed)
         mp.unregister_idle(idle_handler)
     end
 end
@@ -277,24 +277,15 @@ function refresh_overlays(force)
         local index = gallery.view.first + i - 1
         if index <= gallery.view.last then
             local filename = gallery.items[index].filename
-            if force or o.active[i] ~= filename then
-                --local filename_hash = hash_cache[filename]
-                --if filename_hash == nil then
-                --    filename_hash = string.sub(sha256(normalize_path(filename)), 1, 12)
-                --    hash_cache[filename] = filename_hash
-                --end
-                
-                local filename_hash = string.sub(sha256(normalize_path(filename)), 1, 12)
-                local thumb_filename = string.format("%s_%d_%d", filename_hash, g.item_size.w, g.item_size.h)
-                local thumb_path = utils.join_path(opts.thumbs_dir, thumb_filename)
-                if file_exists(thumb_path) then
-                    show_overlay(i, thumb_path)
-                    o.active[i] = filename
-                else
-                    o.missing[thumb_path] = { index = i, input = filename }
-                    remove_overlay(i)
-                    todo[#todo + 1] = { input = filename, output = thumb_path }
-                end
+
+            local thumb_path = gallery.item_to_overlay_path(gallery.items[index])
+            if file_exists(thumb_path) then
+                show_overlay(i, thumb_path)
+                o.active[i] = filename
+            else
+                o.missing[thumb_path] = { index = i, input = filename }
+                remove_overlay(i)
+                todo[#todo + 1] = { item = gallery.items[index], output = thumb_path }
             end
         else
             remove_overlay(i)
@@ -305,12 +296,13 @@ function refresh_overlays(force)
         for i = #todo, 1, -1 do
             local generator = gallery.generators[i % #gallery.generators + 1]
             local t = todo[i]
+            local input_path, time = gallery.item_to_thumbnail_params(t.item)
             mp.commandv("script-message-to", generator, "push-thumbnail-front",
                 mp.get_script_name(),
-                t.input,
+                input_path,
                 tostring(g.item_size.w),
                 tostring(g.item_size.h),
-                opts.take_thumbnail_at,
+                time,
                 t.output,
                 "false", -- accurate
                 opts.generate_thumbnails_with_mpv and "true" or "false"
@@ -353,12 +345,12 @@ function select_under_cursor()
     local g = gallery.geometry
     local mx, my = mp.get_mouse_pos()
     if mx < 0 or my < 0 or mx > g.draw_area.w or my > g.draw_area.h then return end
-    local mx, my = mx - g.effective_spacing.w, my - g.margin_y
+    mx, my = mx - g.effective_spacing.w, my - g.effective_spacing.h
     local on_column = (mx % (g.item_size.w + g.effective_spacing.w)) < g.item_size.w
-    local on_row = (my % (g.item_size.h + g.margin_y)) < g.item_size.h
+    local on_row = (my % (g.item_size.h + g.effective_spacing.h)) < g.item_size.h
     if on_column and on_row then
         local column = math.floor(mx / (g.item_size.w + g.effective_spacing.w))
-        local row = math.floor(my / (g.item_size.h + g.margin_y))
+        local row = math.floor(my / (g.item_size.h + g.effective_spacing.h))
         local new_sel = view.first + row * g.columns + column
         if new_sel > view.last then return end
         if selection == new_sel then
@@ -375,7 +367,7 @@ function compute_geometry()
     local g = gallery.geometry
     local spacing_y = opts.show_filename and math.max(opts.text_size, g.desired_spacing.h) or g.desired_spacing.h
     g.rows = math.floor((g.draw_area.h - spacing_y) / (g.item_size.h + spacing_y))
-    g.columns = math.floor((g.draw_area.w- g.desired_spacing.w) / (g.item_size.w + g.desired_spacing.w))
+    g.columns = math.floor((g.draw_area.w - g.desired_spacing.w) / (g.item_size.w + g.desired_spacing.w))
     if (g.rows * g.columns > opts.max_thumbnails) then
         local r = math.sqrt(g.rows * g.columns / opts.max_thumbnails)
         g.rows = math.floor(g.rows / r)
@@ -494,13 +486,13 @@ do
         local selection_ass = assdraw.ass_new()
         local v = gallery.view
         local g = gallery.geometry
-        local draw_frame = function(index, color)
+        local draw_frame = function(index, size, color)
             if index < v.first or index > v.last then return end
             local i = index - v.first
             local x = g.effective_spacing.w + (g.effective_spacing.w + g.item_size.w) * (i % g.columns)
             local y = g.effective_spacing.h + (g.effective_spacing.h + g.item_size.h) * math.floor(i / g.columns)
             selection_ass:new_event()
-            selection_ass:append('{\\bord5}')
+            selection_ass:append('{\\bord' .. size ..'}')
             selection_ass:append('{\\3c&'.. color ..'&}')
             selection_ass:append('{\\1a&FF&}')
             selection_ass:pos(0, 0)
@@ -509,56 +501,36 @@ do
             selection_ass:draw_stop()
         end
         for i = v.first, v.last do
-            local name = playlist[i].filename
-            if flags[name] then
-                if i == gallery.selection then
-                    draw_frame(i, opts.selected_flagged_frame_color)
-                else
-                    draw_frame(i, opts.flagged_frame_color)
-                end
-            elseif i == gallery.selection then
-                draw_frame(i, opts.selected_frame_color)
+            local size, color = gallery.item_to_border(gallery.items[i])
+            if size > 0 then
+                draw_frame(i, size, color)
             end
         end
 
         if opts.show_filename or opts.show_title then
             selection_ass:new_event()
+            local text, align = gallery.item_to_text(gallery.items[gallery.selection])
             local i = (gallery.selection - v.first)
             local an = 5
             local x = g.effective_spacing.w + (g.effective_spacing.w + g.item_size.w) * (i % g.columns) + g.item_size.w / 2
             local y = g.effective_spacing.h + (g.effective_spacing.h + g.item_size.h) * math.floor(i / g.columns) + g.item_size.h + g.effective_spacing.h / 2
-            local col = i % g.columns
-            if g.columns > 1 then
-                if col == 0 then
-                    x = x - g.item_size.w / 2
-                    an = 4
-                elseif col == g.columns - 1 then
-                    x = x + g.item_size.w / 2
-                    an = 6
+            if align then
+                local col = i % g.columns
+                if g.columns > 1 then
+                    if col == 0 then
+                        x = x - g.item_size.w / 2
+                        an = 4
+                    elseif col == g.columns - 1 then
+                        x = x + g.item_size.w / 2
+                        an = 6
+                    end
                 end
             end
             selection_ass:an(an)
             selection_ass:pos(x, y)
             selection_ass:append(string.format("{\\fs%d}", opts.text_size))
             selection_ass:append("{\\bord0}")
-            local f
-            local element = playlist[gallery.selection]
-            if opts.show_title and element.title then
-                f = element.title
-            else
-                f = element.filename
-                if opts.strip_directory then
-                    if on_windows then
-                        f = string.match(f, "([^\\/]+)$") or f
-                    else
-                        f = string.match(f, "([^/]+)$") or f
-                    end
-                end
-                if opts.strip_extension then
-                    f = string.match(f, "(.+)%.[^.]+$") or f
-                end
-            end
-            selection_ass:append(f)
+            selection_ass:append(text)
         end
         gallery.ass.selection = selection_ass.text
     end
@@ -570,7 +542,7 @@ do
         local merge = function(a, b)
             return b ~= "" and (a .. "\n" .. b) or a
         end
-        mp.set_osd_ass(1280, 720,
+        mp.set_osd_ass(gallery.geometry.draw_area.w, gallery.geometry.draw_area.h,
             merge(merge(gallery.ass.selection, gallery.ass.scrollbar), gallery.ass.placeholders)
         )
     end
@@ -586,6 +558,7 @@ end
 
 flags = {}
 resume = {} -- maps filenames to a {time=,vid=,aid=,sid=} tuple
+hash_cache = {}
 misc = {
     old_force_window = "",
     old_geometry = "",
@@ -741,10 +714,57 @@ function start_gallery_view(record_time)
     gallery.geometry.draw_area.y = 0
     gallery.geometry.draw_area.w = ww
     gallery.geometry.draw_area.h = wh
-    gallery.geometry.item_size.h = opts.thumbnail_width
-    gallery.geometry.item_size.w = opts.thumbnail_height
+    gallery.geometry.item_size.w = opts.thumbnail_width
+    gallery.geometry.item_size.h = opts.thumbnail_height
     gallery.geometry.desired_spacing.h = opts.margin_y
     gallery.geometry.desired_spacing.w = opts.margin_x
+
+    gallery.item_to_overlay_path = function(item)
+        local filename = item.filename
+        local filename_hash = hash_cache[filename]
+        if filename_hash == nil then
+            filename_hash = string.sub(sha256(normalize_path(filename)), 1, 12)
+            hash_cache[filename] = filename_hash
+        end
+        local thumb_filename = string.format("%s_%d_%d", filename_hash, gallery.geometry.item_size.w, gallery.geometry.item_size.h)
+        return utils.join_path(opts.thumbs_dir, thumb_filename)
+    end
+    gallery.item_to_thumbnail_params = function(item)
+        return item.filename, opts.take_thumbnail_at
+    end
+    gallery.item_to_border = function(item)
+        local flagged = flags[item.filename]
+        local selected = gallery.items[gallery.selection].filename == item.filename
+        if flagged and selected then
+            return 5, opts.selected_flagged_frame_color
+        elseif flagged then
+            return 5, opts.flagged_frame_color
+        elseif selected then
+            return 5, opts.selected_frame_color
+        else
+            return 0, ""
+        end
+    end
+    gallery.item_to_text = function(item)
+        local f
+        if opts.show_title and item.title then
+            f = item.title
+        else
+            f = item.filename
+            if opts.strip_directory then
+                if on_windows then
+                    f = string.match(f, "([^\\/]+)$") or f
+                else
+                    f = string.match(f, "([^/]+)$") or f
+                end
+            end
+            if opts.strip_extension then
+                f = string.match(f, "(.+)%.[^.]+$") or f
+            end
+        end
+        return f, true
+    end
+
     compute_geometry()
     if gallery.geometry.rows <= 0 or gallery.geometry.columns <= 0 then return end
 
