@@ -2,10 +2,10 @@ local utils = require 'mp.utils'
 local msg = require 'mp.msg'
 local gallery = require 'lib/gallery'
 
-local on_windows = (package.config:sub(1,1) ~= "/")
+local ON_WINDOWS = (package.config:sub(1,1) ~= "/")
 
 local opts = {
-    thumbs_dir = on_windows and "%APPDATA%\\mpv\\gallery-thumbs-dir" or ".",
+    thumbs_dir = ON_WINDOWS and "%APPDATA%\\mpv\\gallery-thumbs-dir" or ".",
     generate_thumbnails_with_mpv = false,
 
     thumbnail_width = 192,
@@ -80,7 +80,7 @@ for i = 1, #opts.dynamic_thumbnail_size do
     opts.dynamic_thumbnail_size[i] = preset
 end
 
-if on_windows then
+if ON_WINDOWS then
     opts.thumbs_dir = string.gsub(opts.thumbs_dir, "^%%APPDATA%%", os.getenv("APPDATA") or "%APPDATA%")
 else
     opts.thumbs_dir = string.gsub(opts.thumbs_dir, "^~", os.getenv("HOME") or "~")
@@ -108,18 +108,14 @@ gallery = gallery_new()
 flags = {}
 resume = {}
 hash_cache = {}
-misc = {
-    old_force_window = "",
-    old_geometry = "",
-    old_osd_level = "",
-    old_background = "",
-    old_idle = "",
-}
 
 gallery.geometry.item_size.w = opts.thumbnail_width
 gallery.geometry.item_size.h = opts.thumbnail_height
 gallery.geometry.min_spacing.h = opts.show_filename and math.max(opts.text_size, opts.margin_y) or opts.margin_y
 gallery.geometry.min_spacing.w = opts.margin_x
+gallery.too_small = function()
+    quit_gallery_view()
+end
 gallery.item_to_overlay_path = function(index, item)
     local filename = item.filename
     local filename_hash = hash_cache[filename]
@@ -154,7 +150,7 @@ gallery.item_to_text = function(index, item)
     else
         f = item.filename
         if opts.strip_directory then
-            if on_windows then
+            if ON_WINDOWS then
                 f = string.match(f, "([^\\/]+)$") or f
             else
                 f = string.match(f, "([^/]+)$") or f
@@ -165,6 +161,17 @@ gallery.item_to_text = function(index, item)
         end
     end
     return f, true
+end
+
+function toggle_selection_flag()
+    local name = gallery.items[gallery.selection].filename
+    if flags[name] == nil then
+        flags[name] = true
+    else
+        flags[name] = nil
+    end
+    -- TODO fix
+    --ass_show(true, false, false)
 end
 
 do
@@ -185,15 +192,26 @@ do
         bindings_repeat[opts.PAGE_UP]   = function() increment_func(- gallery.geometry.columns * gallery.geometry.rows, true) end
         bindings_repeat[opts.PAGE_DOWN] = function() increment_func(  gallery.geometry.columns * gallery.geometry.rows, true) end
         bindings_repeat[opts.RANDOM]    = function() gallery.pending.selection = math.random(1, #gallery.items) end
-        bindings_repeat[opts.REMOVE]    = function() gallery.pending.deletion = true end
+        bindings_repeat[opts.REMOVE]    = function()
+            mp.commandv("playlist-remove", gallery.selection - 1)
+            gallery.selection = gallery.selection + (gallery.selection == #gallery.items and -1 or 1)
+        end
 
     local bindings = {}
         bindings[opts.FIRST]  = function() gallery.pending.selection = 1 end
         bindings[opts.LAST]   = function() gallery.pending.selection = #gallery.items end
         bindings[opts.ACCEPT] = function() quit_gallery_view(gallery.selection) end
-        bindings[opts.CANCEL] = function() quit_gallery_view(nil) end
+        bindings[opts.CANCEL] = function() quit_gallery_view() end
         bindings[opts.FLAG]   = toggle_selection_flag
-        bindings["MBTN_LEFT"]  = select_under_cursor
+        bindings["MBTN_LEFT"]  = function()
+            local index = gallery:index_at(mp.get_mouse_pos())
+            if not index then return end
+            if index == gallery.selection then
+                quit_gallery_view(selection)
+            else
+                gallery.pending.selection = index
+            end
+        end
         bindings["WHEEL_UP"]   = function() increment_func(- gallery.geometry.columns, true) end
         bindings["WHEEL_DOWN"] = function() increment_func(  gallery.geometry.columns, true) end
 
@@ -205,7 +223,7 @@ do
             mp.add_forced_key_binding(key, "gallery-view-"..key, func)
         end
     end
- 
+
     function teardown_ui_handlers()
         for key, _ in pairs(bindings_repeat) do
             mp.remove_key_binding("gallery-view-"..key)
@@ -216,87 +234,12 @@ do
     end
 end
 
-function toggle_selection_flag()
-    local name = playlist[selection].filename
-    if flags[name] == nil then
-        flags[name] = true
-    else
-        flags[name] = nil
-    end
-    ass_show(true, false, false)
-end
-
-function resume_playback(select)
-    -- what a mess
-    local s = resume[playlist[select].filename]
-    local pos = mp.get_property_number("playlist-pos-1")
-    if pos == select then
-        if s and opts.resume_when_picking then
-            mp.commandv("seek", s.time, "absolute")
-        end
-        mp.set_property("vid", s and s.vid or "1")
-        mp.set_property("aid", s and s.aid or "1")
-        mp.set_property("sid", s and s.sid or "1")
-        mp.set_property_bool("pause", false)
-    else
-        if s then
-            local func
-            func = function()
-                local change_maybe = function(prop, val)
-                    if val ~= mp.get_property(prop) then
-                        mp.set_property(prop,val)
-                    end
-                end
-                change_maybe("vid", s.vid)
-                change_maybe("aid", s.aid)
-                change_maybe("sid", s.sid)
-                if opts.resume_when_picking then
-                    mp.commandv("seek", s.time, "absolute")
-                end
-                mp.unregister_event(func)
-            end
-            mp.register_event("file-loaded", func)
-        end
-        mp.set_property("playlist-pos-1", select)
-        mp.set_property("vid", "1")
-        mp.set_property("aid", "1")
-        mp.set_property("sid", "1")
-        mp.set_property_bool("pause", false)
-    end
-end
-
-function restore_properties()
-    mp.set_property("force-window", misc.old_force_window)
-    mp.set_property("track-auto-selection", misc.old_track_auto_selection)
-    mp.set_property("geometry", misc.old_geometry)
-    mp.set_property("osd-level", misc.old_osd_level)
-    mp.set_property("background", misc.old_background)
-    mp.set_property("idle", misc.old_idle)
-    mp.commandv("script-message", "osc-visibility", "auto", "true")
-end
-
-function save_properties()
-    misc.old_force_window = mp.get_property("force-window")
-    misc.old_track_auto_selection = mp.get_property("track-auto-selection")
-    misc.old_geometry = mp.get_property("geometry")
-    misc.old_osd_level = mp.get_property("osd-level")
-    misc.old_background = mp.get_property("background")
-    misc.old_idle = mp.get_property("idle")
-    mp.set_property_bool("force-window", true)
-    mp.set_property_bool("track-auto-selection", false)
-    mp.set_property_number("osd-level", 0)
-    mp.set_property("background", opts.background)
-    mp.set_property_bool("idle", true)
-    mp.commandv("no-osd", "script-message", "osc-visibility", "never", "true")
-    mp.set_property("geometry", gallery.geometry.window.w .. "x" .. gallery.geometry.window.h)
-end
-
 function normalize_path(path)
     if string.find(path, "://") then
         return path
     end
     path = utils.join_path(utils.getcwd(), path)
-    if on_windows then
+    if ON_WINDOWS then
         path = string.gsub(path, "\\", "/")
     end
     path = string.gsub(path, "/%./", "/")
@@ -323,7 +266,7 @@ do
 end
 
 function playlist_changed(key, value)
-    if not active then return end
+    if not gallery.active then return end
     local did_change = function()
         if #gallery.items ~= #value then return true end
         for i = 1, #gallery.items do
@@ -336,7 +279,6 @@ function playlist_changed(key, value)
         quit_gallery_view()
         return
     end
-    local sel_old_file = gallery.items[selection.old].filename
     local sel_new_file = gallery.items[gallery.selection].filename
     gallery.items = value
     gallery.selection = math.max(1, math.min(gallery.selection, #gallery.items))
@@ -348,6 +290,21 @@ function playlist_changed(key, value)
     gallery:items_changed()
 end
 
+function set_geometry()
+    local ww, wh = mp.get_osd_size()
+    gallery.geometry.window.w = ww
+    gallery.geometry.window.h = wh
+    gallery.geometry.draw_area.x = ww - 300
+    gallery.geometry.draw_area.y = 30
+    gallery.geometry.draw_area.w = 300 - 30
+    gallery.geometry.draw_area.h = wh - 2 * 30
+end
+
+function window_size_changed()
+    set_geometry()
+    gallery.pending.geometry_changed = true
+end
+
 function start_gallery_view(record_time)
     init()
     playlist = mp.get_property_native("playlist")
@@ -355,52 +312,30 @@ function start_gallery_view(record_time)
     local ww, wh = mp.get_osd_size()
 
     gallery.items = playlist
-    gallery.geometry.window.w = ww
-    gallery.geometry.window.h = wh
-    gallery.geometry.draw_area.x = 1 * ww / 4
-    gallery.geometry.draw_area.y = 0
-    gallery.geometry.draw_area.w = 2 * ww / 4
-    gallery.geometry.draw_area.h = wh
-    
+    set_geometry()
 
     if not gallery:enough_space() then return end
 
-    save_properties()
-
-    local pos = mp.get_property_number("playlist-pos-1")
-    if pos then
-        local s = {}
-        mp.set_property_bool("pause", true)
-        if opts.resume_when_picking then
-            s.time = record_time and mp.get_property_number("time-pos") or 0
-        end
-        s.vid = mp.get_property_number("vid") or "1"
-        s.aid = mp.get_property_number("aid") or "1"
-        s.sid = mp.get_property_number("sid") or "1"
-        resume[playlist[pos].filename] = s
-        mp.set_property("vid", "no")
-        mp.set_property("aid", "no")
-        mp.set_property("sid", "no")
-    else
-        -- this may happen if we enter the gallery too fast
-        local func
-        func = function()
-            mp.set_property_bool("pause", true)
-            mp.set_property("vid", "no")
-            mp.set_property("aid", "no")
-            mp.set_property("sid", "no")
-            mp.unregister_event(func)
-        end
-        mp.register_event("file-loaded", func)
+    for _, prop in ipairs({ "osd-width", "osd-height" }) do
+        mp.observe_property(prop, "native", window_size_changed)
     end
+    mp.set_property_bool("pause", true)
+    local pos = mp.get_property_number("playlist-pos-1")
     gallery:activate(pos or 1)
     setup_ui_handlers()
 end
 
 function quit_gallery_view(select)
+    if select then
+        mp.set_property("playlist-pos-1", select)
+        local s = resume[playlist[select].filename]
+        if s then
+            mp.commandv("seek", s.time, "absolute")
+        end
+    end
+    mp.unobserve_property(window_size_changed)
+    mp.set_property_bool("pause", false)
     gallery:deactivate()
-    restore_properties()
-    resume_playback(select)
     teardown_ui_handlers()
 end
 
@@ -447,7 +382,6 @@ if opts.start_gallery_on_file_end then
     mp.observe_property("eof-reached", "bool", function(_, val)
         if val and mp.get_property_number("playlist-count") > 1 then
             start_gallery_view(false)
-
         end
     end)
 end

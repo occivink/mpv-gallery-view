@@ -46,16 +46,19 @@ function gallery_new()
         pending = {
             selection = nil,
             geometry_changed = false,
-            deletion = false,
         },
         config = {
+            background = true,
+            background_color = '333333',
+            background_opacity = '33',
+            background_roundness = 2,
             scrollbar = true,
-            scrollbar_left_side = true,
+            scrollbar_left_side = false,
             scrollbar_min_size = 10,
             max_items = 64,
             show_placeholders = true,
             always_show_placeholders = false,
-            placeholder_color = "222222",
+            placeholder_color = '222222',
             frame_roundness = 0,
             show_text = true,
             text_size = 28,
@@ -82,10 +85,11 @@ function gallery_mt.show_overlay(gallery, index_1, thumb_path)
     local g = gallery.geometry
     gallery.overlays.active[index_1] = true
     local index_0 = index_1 - 1
+    local x, y = gallery:view_index_position(index_0)
     mp.commandv("overlay-add",
         tostring(index_0),
-        tostring(math.floor(g.draw_area.x + 0.5 + g.effective_spacing.w + (g.effective_spacing.w + g.item_size.w) * (index_0 % g.columns))),
-        tostring(math.floor(g.draw_area.y + 0.5 + g.effective_spacing.h + (g.effective_spacing.h + g.item_size.h) * math.floor(index_0 / g.columns))),
+        tostring(math.floor(x + 0.5)),
+        tostring(math.floor(y + 0.5)),
         thumb_path,
         "0",
         "bgra",
@@ -164,27 +168,25 @@ function gallery_mt.refresh_overlays(gallery, force)
     end
 end
 
-function gallery_mt.select_under_cursor(gallery)
-    -- TODO fixup
+function gallery_mt.index_at(gallery, mx, my)
     local g = gallery.geometry
-    local mx, my = mp.get_mouse_pos()
-    if mx < 0 or my < 0 or mx > g.draw_area.w or my > g.draw_area.h then return end
-    mx, my = mx - g.effective_spacing.w, my - g.effective_spacing.h
+    if mx < g.draw_area.x or my < g.draw_area.y then return nil end
+    mx = mx - g.draw_area.x
+    my = my - g.draw_area.y
+    if mx > g.draw_area.w or my > g.draw_area.h then return nil end
+    mx = mx - g.effective_spacing.w
+    my = my - g.effective_spacing.h
     local on_column = (mx % (g.item_size.w + g.effective_spacing.w)) < g.item_size.w
     local on_row = (my % (g.item_size.h + g.effective_spacing.h)) < g.item_size.h
     if on_column and on_row then
         local column = math.floor(mx / (g.item_size.w + g.effective_spacing.w))
         local row = math.floor(my / (g.item_size.h + g.effective_spacing.h))
-        local new_sel = view.first + row * g.columns + column
-        if new_sel > view.last then return end
-        if selection == new_sel then
-            quit_gallery_view(selection)
-        else
-            selection = new_sel
-            pending.selection = new_sel
-            ass_show(true, false, false)
+        local index = gallery.view.first + row * g.columns + column
+        if index <= gallery.view.last then 
+            return index
         end
     end
+    return nil
 end
 
 function gallery_mt.compute_geometry(gallery)
@@ -245,6 +247,21 @@ function gallery_mt.ensure_view_valid(gallery)
 end
 
 -- ass related stuff
+function gallery_mt.refresh_background(gallery)
+    local g = gallery.geometry
+    local a = assdraw.ass_new()
+    a:new_event()
+    a:append('{\\bord0}')
+    a:append('{\\shad0}')
+    a:append('{\\1c&' .. gallery.config.background_color .. '}')
+    a:append('{\\1a&' .. gallery.config.background_opacity .. '}')
+    a:pos(0, 0)
+    a:draw_start()
+    a:round_rect_cw(g.draw_area.x, g.draw_area.y, g.draw_area.x + g.draw_area.w, g.draw_area.y + g.draw_area.h, gallery.config.background_roundness)
+    a:draw_stop()
+    gallery.ass.background = a.text
+end
+
 function gallery_mt.refresh_placeholders(gallery)
     if not gallery.config.show_placeholders then return end
     local g = gallery.geometry
@@ -252,13 +269,12 @@ function gallery_mt.refresh_placeholders(gallery)
     a:new_event()
     a:append('{\\bord0}')
     a:append('{\\shad0}')
-    a:append('{\\1c&' ..'222222' .. '}') -- TODO
+    a:append('{\\1c&' .. gallery.config.placeholder_color .. '}')
     a:pos(0, 0)
     a:draw_start()
     for i = 0, gallery.view.last - gallery.view.first do
         if gallery.config.always_show_placeholders or not gallery.overlays.active[i + 1] then
-            local x = g.draw_area.x + g.effective_spacing.w + (g.effective_spacing.w + g.item_size.w) * (i % g.columns)
-            local y = g.draw_area.y + g.effective_spacing.h + (g.effective_spacing.h + g.item_size.h) * math.floor(i / g.columns)
+            local x, y = gallery:view_index_position(i)
             a:rect_cw(x, y, x + g.item_size.w, y + g.item_size.h)
         end
     end
@@ -290,10 +306,11 @@ function gallery_mt.refresh_scrollbar(gallery)
     local y2 = g.draw_area.y + g.draw_area.h - (g.effective_spacing.h + after * (g.draw_area.h - 2 * g.effective_spacing.h))
     local x1, x2
     if gallery.config.scrollbar_left_side then
-        x1, x2 = g.draw_area.x + 4, g.draw_area.x + 8
+        x1 = g.draw_area.x + g.effective_spacing.w / 2 - 2
     else
-        x1, x2 = g.draw_area.x + g.draw_area.w - 8, g.draw_area.x + g.draw_area.w - 4
+        x1 = g.draw_area.x + g.draw_area.w - g.effective_spacing.w / 2 - 2
     end
+    x2 = x1 + 4
     local scrollbar = assdraw.ass_new()
     scrollbar:new_event()
     scrollbar:append('{\\bord0}')
@@ -313,8 +330,7 @@ function gallery_mt.refresh_selection(gallery)
     local draw_frame = function(index, size, color)
         if index < v.first or index > v.last then return end
         local i = index - v.first
-        local x = g.draw_area.x + g.effective_spacing.w + (g.effective_spacing.w + g.item_size.w) * (i % g.columns)
-        local y = g.draw_area.y + g.effective_spacing.h + (g.effective_spacing.h + g.item_size.h) * math.floor(i / g.columns)
+        local x, y = gallery:view_index_position(i)
         selection_ass:new_event()
         selection_ass:append('{\\bord' .. size ..'}')
         selection_ass:append('{\\3c&'.. color ..'&}')
@@ -331,44 +347,56 @@ function gallery_mt.refresh_selection(gallery)
         end
     end
 
-    local text, align = gallery.item_to_text(gallery.selection, gallery.items[gallery.selection])
-    gallery.ass.selection = ""
-    if text ~= "" then
-        selection_ass:new_event()
-        local i = (gallery.selection - v.first)
-        local an = 5
-        local x = g.draw_area.x + g.effective_spacing.w + (g.effective_spacing.w + g.item_size.w) * (i % g.columns) + g.item_size.w / 2
-        local y = g.draw_area.y + g.effective_spacing.h + (g.effective_spacing.h + g.item_size.h) * math.floor(i / g.columns) + g.item_size.h + g.effective_spacing.h / 2
-        if align then
-            local col = i % g.columns
-            if g.columns > 1 then
-                if col == 0 then
-                    x = x - g.item_size.w / 2
-                    an = 4
-                elseif col == g.columns - 1 then
-                    x = x + g.item_size.w / 2
-                    an = 6
+    if gallery.config.show_text then
+        local text, align = gallery.item_to_text(gallery.selection, gallery.items[gallery.selection])
+        if text ~= "" then
+            selection_ass:new_event()
+            local i = (gallery.selection - v.first)
+            local an = 5
+            local x, y = gallery:view_index_position(i)
+            x = x + g.item_size.w / 2
+            y = y + g.item_size.h + g.effective_spacing.h / 2
+            if align then
+                local col = i % g.columns
+                if g.columns > 1 then
+                    if col == 0 then
+                        x = x - g.item_size.w / 2
+                        an = 4
+                    elseif col == g.columns - 1 then
+                        x = x + g.item_size.w / 2
+                        an = 6
+                    end
                 end
             end
+            selection_ass:an(an)
+            selection_ass:pos(x, y)
+            selection_ass:append(string.format("{\\fs%d}", gallery.config.text_size))
+            selection_ass:append("{\\bord0}")
+            selection_ass:append(text)
         end
-        selection_ass:an(an)
-        selection_ass:pos(x, y)
-        selection_ass:append(string.format("{\\fs%d}", gallery.config.text_size))
-        selection_ass:append("{\\bord0}")
-        selection_ass:append(text)
-        gallery.ass.selection = selection_ass.text
     end
+    gallery.ass.selection = selection_ass.text
 end
 
-function gallery_mt.ass_show(gallery, selection, scrollbar, placeholders)
+function gallery_mt.ass_show(gallery, selection, scrollbar, placeholders, background)
     if selection then gallery:refresh_selection() end
     if scrollbar then gallery:refresh_scrollbar() end
     if placeholders then gallery:refresh_placeholders() end
+    if background then gallery:refresh_background() end
     local merge = function(a, b)
         return b ~= "" and (a .. "\n" .. b) or a
     end
     mp.set_osd_ass(gallery.geometry.window.w, gallery.geometry.window.h,
-        merge(merge(gallery.ass.selection, gallery.ass.scrollbar), gallery.ass.placeholders)
+        merge(
+            gallery.ass.background,
+            merge(
+                gallery.ass.placeholders,
+                merge(
+                    gallery.ass.selection,
+                    gallery.ass.scrollbar
+                )
+            )
+        )
     )
 end
 
@@ -382,25 +410,25 @@ function gallery_mt.idle_handler(gallery)
         gallery.pending.selection = nil
         gallery:ensure_view_valid()
         gallery:refresh_overlays(false)
-        gallery:ass_show(true, true, true)
+        gallery:ass_show(true, true, true, false)
     end
     if gallery.pending.geometry_changed then
         gallery.pending.geometry_changed = false
-        if not gallery:compute_geometry() then
-            --quit_gallery_view(nil)
-            -- TODO
+        if not gallery:enough_space() then
+            gallery.too_small()
             return
         end
+        gallery:compute_geometry()
         gallery:ensure_view_valid()
         gallery:refresh_overlays(true)
-        gallery:ass_show(true, true, true)
+        gallery:ass_show(true, true, true, true)
     end
 end
 
 function gallery_mt.items_changed(gallery)
     gallery:ensure_view_valid()
     gallery:refresh_overlays(false)
-    gallery:ass_show(true, true, true)
+    gallery:ass_show(true, true, true, false)
 end
 
 function gallery_mt.thumbnail_generated(gallery, thumb_path)
@@ -409,7 +437,7 @@ function gallery_mt.thumbnail_generated(gallery, thumb_path)
         if missing.thumb_path == thumb_path then
             gallery:show_overlay(missing.view_index, thumb_path)
             if not gallery.config.always_show_placeholders then
-                gallery:ass_show(false, false, true)
+                gallery:ass_show(false, false, true, false)
             end
             gallery.overlays.missing[index] = nil
             return
@@ -424,6 +452,12 @@ function gallery_mt.add_generator(gallery, generator_name)
     gallery.generators[#gallery.generators + 1] = generator_name
 end
 
+function gallery_mt.view_index_position(gallery, index_0)
+    local g = gallery.geometry
+    return math.floor(g.draw_area.x + g.effective_spacing.w + (g.effective_spacing.w + g.item_size.w) * (index_0 % g.columns)),
+        math.floor(g.draw_area.y + g.effective_spacing.h + (g.effective_spacing.h + g.item_size.h) * math.floor(index_0 / g.columns))
+end
+
 function gallery_mt.enough_space(gallery)
     if gallery.geometry.draw_area.w < gallery.geometry.item_size.w + 2 * gallery.geometry.min_spacing.w then return false end
     if gallery.geometry.draw_area.h < gallery.geometry.item_size.h + 2 * gallery.geometry.min_spacing.h then return false end
@@ -436,7 +470,7 @@ function gallery_mt.activate(gallery, selection)
     if not gallery:compute_geometry() then return false end
     gallery:ensure_view_valid()
     gallery:refresh_overlays(true)
-    gallery:ass_show(true, true, true)
+    gallery:ass_show(true, true, true, true)
     gallery.idle = function() gallery:idle_handler() end
     mp.register_idle(gallery.idle)
     gallery.active = true
