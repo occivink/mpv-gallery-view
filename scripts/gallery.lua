@@ -1,6 +1,6 @@
 local utils = require 'mp.utils'
 local msg = require 'mp.msg'
-local assdraw = require 'mp.assdraw'
+local gallery = require 'lib/gallery'
 
 local on_windows = (package.config:sub(1,1) ~= "/")
 
@@ -87,21 +87,6 @@ else
 end
 opts.max_thumbnails = math.min(opts.max_thumbnails, 64)
 
-function file_exists(path)
-    if utils.file_info then -- 0.28+
-        local info = utils.file_info(path)
-        return info ~= nil and info.is_file
-    else
-        local f = io.open(path, "r")
-        if f ~= nil then
-            io.close(f)
-            return true
-        end
-        return false
-    end
-end
-
-
 local sha256
 --[[
 minified code below is a combination of:
@@ -118,79 +103,69 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 do local b,c,d,e,f;if bit32 then b,c,d,e,f=bit32.band,bit32.rrotate,bit32.bxor,bit32.rshift,bit32.bnot else f=function(g)g=math.floor(tonumber(g))%0x100000000;return(-g-1)%0x100000000 end;local h={[0]={[0]=0,0,0,0},[1]={[0]=0,1,0,1},[2]={[0]=0,0,2,2},[3]={[0]=0,1,2,3}}local i={[0]={[0]=0,1,2,3},[1]={[0]=1,0,3,2},[2]={[0]=2,3,0,1},[3]={[0]=3,2,1,0}}local function j(k,l,m,n,o)for p=1,m do l[p]=math.floor(tonumber(l[p]))%0x100000000 end;local q=1;local r=0;for s=0,31,2 do local t=n;for p=1,m do t=o[t][l[p]%4]l[p]=math.floor(l[p]/4)end;r=r+t*q;q=q*4 end;return r end;b=function(...)return j('band',{...},select('#',...),3,h)end;d=function(...)return j('bxor',{...},select('#',...),0,i)end;e=function(g,u)g=math.floor(tonumber(g))%0x100000000;u=math.floor(tonumber(u))u=math.min(math.max(-32,u),32)return math.floor(g/2^u)%0x100000000 end;c=function(g,u)g=math.floor(tonumber(g))%0x100000000;u=-math.floor(tonumber(u))%32;local g=g*2^u;return g%0x100000000+math.floor(g/0x100000000)end end;local v={0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2}local function w(n)return string.gsub(n,".",function(t)return string.format("%02x",string.byte(t))end)end;local function x(y,z)local n=""for p=1,z do local A=y%256;n=string.char(A)..n;y=(y-A)/256 end;return n end;local function B(n,p)local z=0;for p=p,p+3 do z=z*256+string.byte(n,p)end;return z end;local function C(D,E)local F=-(E+1+8)%64;E=x(8*E,8)D=D.."\128"..string.rep("\0",F)..E;return D end;local function G(H)H[1]=0x6a09e667;H[2]=0xbb67ae85;H[3]=0x3c6ef372;H[4]=0xa54ff53a;H[5]=0x510e527f;H[6]=0x9b05688c;H[7]=0x1f83d9ab;H[8]=0x5be0cd19;return H end;local function I(D,p,H)local J={}for K=1,16 do J[K]=B(D,p+(K-1)*4)end;for K=17,64 do local L=J[K-15]local M=d(c(L,7),c(L,18),e(L,3))L=J[K-2]local N=d(c(L,17),c(L,19),e(L,10))J[K]=J[K-16]+M+J[K-7]+N end;local O,s,t,P,Q,R,S,T=H[1],H[2],H[3],H[4],H[5],H[6],H[7],H[8]for p=1,64 do local M=d(c(O,2),c(O,13),c(O,22))local U=d(b(O,s),b(O,t),b(s,t))local V=M+U;local N=d(c(Q,6),c(Q,11),c(Q,25))local W=d(b(Q,R),b(f(Q),S))local X=T+N+W+v[p]+J[p]T=S;S=R;R=Q;Q=P+X;P=t;t=s;s=O;O=X+V end;H[1]=b(H[1]+O)H[2]=b(H[2]+s)H[3]=b(H[3]+t)H[4]=b(H[4]+P)H[5]=b(H[5]+Q)H[6]=b(H[6]+R)H[7]=b(H[7]+S)H[8]=b(H[8]+T)end;local function Y(H)return w(x(H[1],4)..x(H[2],4)..x(H[3],4)..x(H[4],4)..x(H[5],4)..x(H[6],4)..x(H[7],4)..x(H[8],4))end;local Z={}sha256=function(D)D=C(D,#D)local H=G(Z)for p=1,#D,64 do I(D,p,H)end;return Y(H)end end
 -- end of sha code
 
-----------------------------------
--- GENERIC-ISH
-----------------------------------
+gallery = gallery_new()
 
-local gallery = {
-    active = false,
-    items = {},
-    geometry = {
-        window = { 
-            w = 0,
-            h = 0,
-        },
-        draw_area = {
-            x = 0,
-            y = 0,
-            w = 0,
-            h = 0,
-        },
-        item_size = {
-            w = 0,
-            h = 0,
-        },
-        min_spacing = {
-            w = 0,
-            h = 0,
-        },
-        rows = 0,
-        columns = 0,
-        effective_spacing = {
-            w = 0,
-            h = 0,
-        }
-    },
-    view = { -- 1-based indices into the "playlist" array
-        first = 0, -- must be equal to N*columns
-        last = 0, -- must be > first and <= first + rows*columns
-    },
-    overlays = {
-        active = {}, -- array of <=64 strings indicating the file associated to the current thumbnail (empty if no file)
-        missing = {}, -- maps hashes of missing thumbnails to the index they should be shown at
-    },
-    selection = 0,
-    pending = {
-        selection = nil,
-        geometry_changed = false,
-        deletion = false,
-    },
-    config = {
-        scrollbar = true,
-        scrollbar_left_side = true,
-        scrollbar_min_size = 10,
-        can_delete = true,
-        mouse_support = true,
-        max_items = 64,
-        show_placeholders = true,
-        placeholder_color = "222222",
-        frame_roundness = 0,
-        text_size = 28,
-        -- all bindings...
-    },
-    ass = {
-        background = "",
-        selection = "",
-        scrollbar = "",
-        placeholders = "",
-    },
-    delete_item = function(index, item) return end,
-    item_to_overlay_path = function(index, item) return "" end,
-    item_to_thumbnail_params = function(index, item) return "", 0 end,
-    item_to_text = function(index, item) return "" end,
-    item_to_border = function(index, item) return 0, "" end,
-    generators = {} -- list of generator scripts
+flags = {}
+resume = {}
+hash_cache = {}
+misc = {
+    old_force_window = "",
+    old_geometry = "",
+    old_osd_level = "",
+    old_background = "",
+    old_idle = "",
 }
+
+gallery.geometry.item_size.w = opts.thumbnail_width
+gallery.geometry.item_size.h = opts.thumbnail_height
+gallery.geometry.min_spacing.h = opts.show_filename and math.max(opts.text_size, opts.margin_y) or opts.margin_y
+gallery.geometry.min_spacing.w = opts.margin_x
+gallery.item_to_overlay_path = function(index, item)
+    local filename = item.filename
+    local filename_hash = hash_cache[filename]
+    if filename_hash == nil then
+        filename_hash = string.sub(sha256(normalize_path(filename)), 1, 12)
+        hash_cache[filename] = filename_hash
+    end
+    local thumb_filename = string.format("%s_%d_%d", filename_hash, gallery.geometry.item_size.w, gallery.geometry.item_size.h)
+    return utils.join_path(opts.thumbs_dir, thumb_filename)
+end
+gallery.item_to_thumbnail_params = function(index, item)
+    return item.filename, opts.take_thumbnail_at
+end
+gallery.item_to_border = function(index, item)
+    local flagged = flags[item.filename]
+    local selected = index == gallery.selection
+    if not flagged and not selected then
+        return 0, ""
+    elseif flagged and selected then
+        return 5, opts.selected_flagged_frame_color
+    elseif flagged then
+        return 5, opts.flagged_frame_color
+    elseif selected then
+        return 5, opts.selected_frame_color
+    end
+end
+gallery.item_to_text = function(index, item)
+    if index ~= gallery.selection then return "", false end
+    local f
+    if opts.show_title and item.title then
+        f = item.title
+    else
+        f = item.filename
+        if opts.strip_directory then
+            if on_windows then
+                f = string.match(f, "([^\\/]+)$") or f
+            else
+                f = string.match(f, "([^/]+)$") or f
+            end
+        end
+        if opts.strip_extension then
+            f = string.match(f, "(.+)%.[^.]+$") or f
+        end
+    end
+    return f, true
+end
 
 do
     local function increment_func(increment, clamp)
@@ -222,52 +197,15 @@ do
         bindings["WHEEL_UP"]   = function() increment_func(- gallery.geometry.columns, true) end
         bindings["WHEEL_DOWN"] = function() increment_func(  gallery.geometry.columns, true) end
 
-    local function geometry_changed()
-        gallery.pending.geometry_changed = true
-    end
-
-    local function idle_handler()
-        if gallery.pending.selection then
-            gallery.selection = gallery.pending.selection
-            gallery.pending.selection = nil
-            ensure_view_valid()
-            refresh_overlays(false)
-            ass_show(true, true, true)
-        end
-        if gallery.pending.geometry_changed then
-            gallery.pending.geometry_changed = false
-            local ww, wh = mp.get_osd_size()
-            gallery.geometry.draw_area.x = 0
-            gallery.geometry.draw_area.y = 0
-            gallery.geometry.draw_area.w = ww
-            gallery.geometry.draw_area.h = wh
-            compute_geometry()
-            if geometry.rows <= 0 or geometry.columns <= 0 then
-                quit_gallery_view(nil)
-                return
-            end
-            ensure_view_valid()
-            refresh_overlays(true)
-            ass_show(true, true, true)
-        end
-        if gallery.pending.deletion then
-            gallery.pending.deletion = false
-            -- TODO
-            --mp.commandv("playlist-remove", gallery.selection - 1)
-            --gallery.selection = gallery.selection + (gallery.selection == #gallery.items and -1 or 1)
-        end
-    end
-
-    function setup_ui_handlers()
+     function setup_ui_handlers()
         for key, func in pairs(bindings_repeat) do
             mp.add_forced_key_binding(key, "gallery-view-"..key, func, {repeatable = true})
         end
         for key, func in pairs(bindings) do
             mp.add_forced_key_binding(key, "gallery-view-"..key, func)
         end
-        mp.register_idle(idle_handler)
     end
-
+ 
     function teardown_ui_handlers()
         for key, _ in pairs(bindings_repeat) do
             mp.remove_key_binding("gallery-view-"..key)
@@ -275,307 +213,8 @@ do
         for key, _ in pairs(bindings) do
             mp.remove_key_binding("gallery-view-"..key)
         end
-        mp.unregister_idle(idle_handler)
     end
 end
-
-function refresh_overlays(force)
-    local todo = {}
-    local o = gallery.overlays
-    local g = gallery.geometry
-    o.missing = {}
-    for i = 1, 64 do
-        local index = gallery.view.first + i - 1
-        if index <= gallery.view.last then
-            local thumb_path = gallery.item_to_overlay_path(index, gallery.items[index])
-            if file_exists(thumb_path) then
-                show_overlay(i, thumb_path)
-            else
-                remove_overlay(i)
-                o.missing[i] = { view_index = i, thumb_path = thumb_path }
-                todo[#todo + 1] = { index = index, output = thumb_path }
-            end
-        else
-            remove_overlay(i)
-        end
-    end
-    if #gallery.generators >= 1 then
-        -- reverse iterate so that the first thumbnail is at the top of the stack
-        for i = #todo, 1, -1 do
-            local generator = gallery.generators[i % #gallery.generators + 1]
-            local t = todo[i]
-            local input_path, time = gallery.item_to_thumbnail_params(t.index, gallery.items[t.index])
-            mp.commandv("script-message-to", generator, "push-thumbnail-front",
-                mp.get_script_name(),
-                input_path,
-                tostring(g.item_size.w),
-                tostring(g.item_size.h),
-                time,
-                t.output,
-                "false", -- accurate
-                opts.generate_thumbnails_with_mpv and "true" or "false"
-            )
-        end
-    end
-end
-
-function show_overlay(index_1, thumb_path)
-    local g = gallery.geometry
-    gallery.overlays.active[index_1] = true
-    local index_0 = index_1 - 1
-    mp.commandv("overlay-add",
-        tostring(index_0),
-        tostring(math.floor(g.draw_area.x + 0.5 + g.effective_spacing.w + (g.effective_spacing.w + g.item_size.w) * (index_0 % g.columns))),
-        tostring(math.floor(g.draw_area.y + 0.5 + g.effective_spacing.h + (g.effective_spacing.h + g.item_size.h) * math.floor(index_0 / g.columns))),
-        thumb_path,
-        "0",
-        "bgra",
-        tostring(g.item_size.w),
-        tostring(g.item_size.h),
-        tostring(4*g.item_size.w))
-    mp.osd_message("", 0.01)
-end
-
-function remove_overlays()
-    for i = 1, 64 do
-        remove_overlay(i)
-    end
-end
-
-function remove_overlay(index_1)
-    gallery.overlays.missing[index_1] = nil
-    if not gallery.overlays.active[index_1] then return end
-    gallery.overlays.active[index_1] = false
-    mp.command("overlay-remove " .. index_1 - 1)
-    mp.osd_message("", 0.01)
-end
-
-function select_under_cursor()
-    local g = gallery.geometry
-    local mx, my = mp.get_mouse_pos()
-    if mx < 0 or my < 0 or mx > g.draw_area.w or my > g.draw_area.h then return end
-    mx, my = mx - g.effective_spacing.w, my - g.effective_spacing.h
-    local on_column = (mx % (g.item_size.w + g.effective_spacing.w)) < g.item_size.w
-    local on_row = (my % (g.item_size.h + g.effective_spacing.h)) < g.item_size.h
-    if on_column and on_row then
-        local column = math.floor(mx / (g.item_size.w + g.effective_spacing.w))
-        local row = math.floor(my / (g.item_size.h + g.effective_spacing.h))
-        local new_sel = view.first + row * g.columns + column
-        if new_sel > view.last then return end
-        if selection == new_sel then
-            quit_gallery_view(selection)
-        else
-            selection = new_sel
-            pending.selection = new_sel
-            ass_show(true, false, false)
-        end
-    end
-end
-
-function compute_geometry()
-    local g = gallery.geometry
-    g.rows = math.floor((g.draw_area.h - g.min_spacing.h) / (g.item_size.h + g.min_spacing.h))
-    g.columns = math.floor((g.draw_area.w - g.min_spacing.w) / (g.item_size.w + g.min_spacing.w))
-    if (g.rows * g.columns > gallery.config.max_items) then
-        local r = math.sqrt(g.rows * g.columns / gallery.config.max_items)
-        g.rows = math.floor(g.rows / r)
-        g.columns = math.floor(g.columns / r)
-    end
-    g.effective_spacing.w = (g.draw_area.w - g.columns * g.item_size.w) / (g.columns + 1)
-    g.effective_spacing.h = (g.draw_area.h - g.rows * g.item_size.h) / (g.rows + 1)
-end
-
--- makes sure that view.first and view.last are valid with regards to the playlist
--- and that selection is within the view
--- to be called after the playlist, view or selection was modified somehow
-function ensure_view_valid()
-    local v = gallery.view
-    local g = gallery.geometry
-    local selection_row = math.floor((gallery.selection - 1) / g.columns)
-    local max_thumbs = g.rows * g.columns
-
-    if v.last >= #gallery.items then
-        v.last = #gallery.items
-        last_row = math.floor((v.last - 1) / g.columns)
-        first_row = math.max(0, last_row - g.rows + 1)
-        v.first = 1 + first_row * g.columns
-    elseif v.first == 0 or v.last == 0 or v.last - v.first + 1 ~= max_thumbs then
-        -- special case: the number of possible thumbnails was changed
-        -- just recreate the view such that the selection is in the middle row
-        local max_row = (#gallery.items - 1) / g.columns + 1
-        local row_first = selection_row - math.floor((g.rows - 1) / 2)
-        local row_last = selection_row + math.floor((g.rows - 1) / 2) + g.rows % 2
-        if row_first < 0 then
-            row_first = 0
-        elseif row_last > max_row then
-            row_first = max_row - g.rows + 1
-        end
-        v.first = 1 + row_first * g.columns
-        v.last = math.min(#gallery.items, v.first - 1 + max_thumbs)
-        return
-    end
-
-    if gallery.selection < v.first then
-        -- the selection is now on the first line
-        v.first = selection_row * g.columns + 1
-        v.last = math.min(#gallery.items, v.first + max_thumbs - 1)
-    elseif gallery.selection > v.last then
-        -- the selection is now on the last line
-        v.last = (selection_row + 1) * g.columns
-        v.first = math.max(1, v.last - max_thumbs + 1)
-        v.last = math.min(#gallery.items, v.last)
-    end
-end
-
--- ass related stuff
-do
-    local function refresh_placeholders()
-        if not gallery.config.show_placeholders then return end
-        local g = gallery.geometry
-        local a = assdraw.ass_new()
-        a:new_event()
-        a:append('{\\bord0}')
-        a:append('{\\shad0}')
-        a:append('{\\1c&' ..'222222' .. '}') -- TODO
-        a:pos(0, 0)
-        a:draw_start()
-        for i = 0, gallery.view.last - gallery.view.first do
-            if gallery.config.always_show_placeholders or not gallery.overlays.active[i + 1] then
-                local x = g.draw_area.x + g.effective_spacing.w + (g.effective_spacing.w + g.item_size.w) * (i % g.columns)
-                local y = g.draw_area.y + g.effective_spacing.h + (g.effective_spacing.h + g.item_size.h) * math.floor(i / g.columns)
-                a:rect_cw(x, y, x + g.item_size.w, y + g.item_size.h)
-            end
-        end
-        a:draw_stop()
-        gallery.ass.placeholders = a.text
-    end
-
-    local function refresh_scrollbar()
-        if not gallery.config.scrollbar then return end
-        gallery.ass.scrollbar = ""
-        local g = gallery.geometry
-        local before = (gallery.view.first - 1) / #gallery.items
-        local after = (#gallery.items - gallery.view.last) / #gallery.items
-        -- don't show the scrollbar if everything is visible
-        if before + after == 0 then return end
-        local p = gallery.config.scrollbar_min_size / 100
-        if before + after > 1 - p then
-            if before == 0 then
-                after = (1 - p)
-            elseif after == 0 then
-                before = (1 - p)
-            else
-                before, after =
-                    before / after * (1 - p) / (1 + before / after),
-                    after / before * (1 - p) / (1 + after / before)
-            end
-        end
-        local y1 = g.draw_area.y + g.effective_spacing.h + before * (g.draw_area.h - 2 * g.effective_spacing.h)
-        local y2 = g.draw_area.y + g.draw_area.h - (g.effective_spacing.h + after * (g.draw_area.h - 2 * g.effective_spacing.h))
-        local x1, x2
-        if gallery.config.scrollbar_left_side then
-            x1, x2 = g.draw_area.x + 4, g.draw_area.x + 8
-        else
-            x1, x2 = g.draw_area.x + g.draw_area.w - 8, g.draw_area.x + g.draw_area.w - 4
-        end
-        local scrollbar = assdraw.ass_new()
-        scrollbar:new_event()
-        scrollbar:append('{\\bord0}')
-        scrollbar:append('{\\shad0}')
-        scrollbar:append('{\\1c&AAAAAA&}')
-        scrollbar:pos(0, 0)
-        scrollbar:draw_start()
-        scrollbar:round_rect_cw(x1, y1, x2, y2, gallery.config.frame_roundness)
-        scrollbar:draw_stop()
-        gallery.ass.scrollbar = scrollbar.text
-    end
-
-    local function refresh_selection()
-        local selection_ass = assdraw.ass_new()
-        local v = gallery.view
-        local g = gallery.geometry
-        local draw_frame = function(index, size, color)
-            if index < v.first or index > v.last then return end
-            local i = index - v.first
-            local x = g.draw_area.x + g.effective_spacing.w + (g.effective_spacing.w + g.item_size.w) * (i % g.columns)
-            local y = g.draw_area.y + g.effective_spacing.h + (g.effective_spacing.h + g.item_size.h) * math.floor(i / g.columns)
-            selection_ass:new_event()
-            selection_ass:append('{\\bord' .. size ..'}')
-            selection_ass:append('{\\3c&'.. color ..'&}')
-            selection_ass:append('{\\1a&FF&}')
-            selection_ass:pos(0, 0)
-            selection_ass:draw_start()
-            selection_ass:round_rect_cw(x, y, x + g.item_size.w, y + g.item_size.h, gallery.config.frame_roundness)
-            selection_ass:draw_stop()
-        end
-        for i = v.first, v.last do
-            local size, color = gallery.item_to_border(i, gallery.items[i])
-            if size > 0 then
-                draw_frame(i, size, color)
-            end
-        end
-
-        local text, align = gallery.item_to_text(gallery.selection, gallery.items[gallery.selection])
-        gallery.ass.selection = ""
-        if text ~= "" then
-            selection_ass:new_event()
-            local i = (gallery.selection - v.first)
-            local an = 5
-            local x = g.draw_area.x + g.effective_spacing.w + (g.effective_spacing.w + g.item_size.w) * (i % g.columns) + g.item_size.w / 2
-            local y = g.draw_area.y + g.effective_spacing.h + (g.effective_spacing.h + g.item_size.h) * math.floor(i / g.columns) + g.item_size.h + g.effective_spacing.h / 2
-            if align then
-                local col = i % g.columns
-                if g.columns > 1 then
-                    if col == 0 then
-                        x = x - g.item_size.w / 2
-                        an = 4
-                    elseif col == g.columns - 1 then
-                        x = x + g.item_size.w / 2
-                        an = 6
-                    end
-                end
-            end
-            selection_ass:an(an)
-            selection_ass:pos(x, y)
-            selection_ass:append(string.format("{\\fs%d}", gallery.config.text_size))
-            selection_ass:append("{\\bord0}")
-            selection_ass:append(text)
-            gallery.ass.selection = selection_ass.text
-        end
-    end
-
-    function ass_show(selection, scrollbar, placeholders)
-        if selection then refresh_selection() end
-        if scrollbar then refresh_scrollbar() end
-        if placeholders then refresh_placeholders() end
-        local merge = function(a, b)
-            return b ~= "" and (a .. "\n" .. b) or a
-        end
-        mp.set_osd_ass(gallery.geometry.window.w, gallery.geometry.window.h,
-            merge(merge(gallery.ass.selection, gallery.ass.scrollbar), gallery.ass.placeholders)
-        )
-    end
-
-    function ass_hide()
-        mp.set_osd_ass(1280, 720, "")
-    end
-end
-
-----------------------------------
--- NOT GENERIC
-----------------------------------
-
-flags = {}
-resume = {} -- maps filenames to a {time=,vid=,aid=,sid=} tuple
-hash_cache = {}
-misc = {
-    old_force_window = "",
-    old_geometry = "",
-    old_osd_level = "",
-    old_background = "",
-    old_idle = "",
-}
-
 
 function toggle_selection_flag()
     local name = playlist[selection].filename
@@ -706,79 +345,25 @@ function playlist_changed(key, value)
             gallery.selection = i
         end
     end
-    ensure_view_valid()
-    refresh_overlays(false)
-    ass_show(true, true, true)
+    gallery:items_changed()
 end
 
 function start_gallery_view(record_time)
-    if gallery.active then return end
     init()
     playlist = mp.get_property_native("playlist")
     if #playlist == 0 then return end
-    gallery.items = playlist
-
     local ww, wh = mp.get_osd_size()
+
+    gallery.items = playlist
     gallery.geometry.window.w = ww
     gallery.geometry.window.h = wh
     gallery.geometry.draw_area.x = 1 * ww / 4
     gallery.geometry.draw_area.y = 0
     gallery.geometry.draw_area.w = 2 * ww / 4
     gallery.geometry.draw_area.h = wh
-    gallery.geometry.item_size.w = opts.thumbnail_width
-    gallery.geometry.item_size.h = opts.thumbnail_height
-    gallery.geometry.min_spacing.h = opts.show_filename and math.max(opts.text_size, opts.margin_y) or opts.margin_y
-    gallery.geometry.min_spacing.w = opts.margin_x
+    
 
-    gallery.item_to_overlay_path = function(index, item)
-        local filename = item.filename
-        local filename_hash = hash_cache[filename]
-        if filename_hash == nil then
-            filename_hash = string.sub(sha256(normalize_path(filename)), 1, 12)
-            hash_cache[filename] = filename_hash
-        end
-        local thumb_filename = string.format("%s_%d_%d", filename_hash, gallery.geometry.item_size.w, gallery.geometry.item_size.h)
-        return utils.join_path(opts.thumbs_dir, thumb_filename)
-    end
-    gallery.item_to_thumbnail_params = function(index, item)
-        return item.filename, opts.take_thumbnail_at
-    end
-    gallery.item_to_border = function(index, item)
-        local flagged = flags[item.filename]
-        local selected = index == gallery.selection
-        if not flagged and not selected then
-            return 0, ""
-        elseif flagged and selected then
-            return 5, opts.selected_flagged_frame_color
-        elseif flagged then
-            return 5, opts.flagged_frame_color
-        elseif selected then
-            return 5, opts.selected_frame_color
-        end
-    end
-    gallery.item_to_text = function(index, item)
-        if index ~= gallery.selection then return "", false end
-        local f
-        if opts.show_title and item.title then
-            f = item.title
-        else
-            f = item.filename
-            if opts.strip_directory then
-                if on_windows then
-                    f = string.match(f, "([^\\/]+)$") or f
-                else
-                    f = string.match(f, "([^/]+)$") or f
-                end
-            end
-            if opts.strip_extension then
-                f = string.match(f, "(.+)%.[^.]+$") or f
-            end
-        end
-        return f, true
-    end
-
-    compute_geometry()
-    if gallery.geometry.rows <= 0 or gallery.geometry.columns <= 0 then return end
+    if not gallery:enough_space() then return end
 
     save_properties()
 
@@ -808,24 +393,15 @@ function start_gallery_view(record_time)
         end
         mp.register_event("file-loaded", func)
     end
-    gallery.selection = pos or 1
-    ensure_view_valid()
+    gallery:activate(pos or 1)
     setup_ui_handlers()
-    refresh_overlays(true)
-    ass_show(true, true, true)
-    gallery.active = true
 end
 
 function quit_gallery_view(select)
-    if not gallery.active then return end
-    teardown_ui_handlers()
-    remove_overlays()
-    ass_hide()
-    if select then
-        resume_playback(select)
-    end
+    gallery:deactivate()
     restore_properties()
-    gallery.active = false
+    resume_playback(select)
+    teardown_ui_handlers()
 end
 
 function toggle_gallery()
@@ -837,17 +413,7 @@ function toggle_gallery()
 end
 
 mp.register_script_message("thumbnail-generated", function(thumb_path)
-    if not gallery.active then return end
-    for index, missing in pairs(gallery.overlays.missing) do
-        if missing.thumb_path == thumb_path then
-            show_overlay(missing.view_index, thumb_path)
-            if not opts.always_show_placeholders then
-                ass_show(false, false, true)
-            end
-            gallery.overlays.missing[index] = nil
-            return
-        end
-    end
+     gallery:thumbnail_generated(thumb_path)
 end)
 
 function thumbnail_size_from_presets(window_w, window_h)
@@ -862,13 +428,8 @@ function thumbnail_size_from_presets(window_w, window_h)
     return picked
 end
 
-
 mp.register_script_message("thumbnails-generator-broadcast", function(generator_name)
-    if #gallery.generators >= opts.max_generators then return end
-    for _, g in ipairs(gallery.generators) do
-        if generator_name == g then return end
-    end
-    gallery.generators[#gallery.generators + 1] = generator_name
+     gallery:add_generator(generator_name)
 end)
 
 function write_flag_file()
