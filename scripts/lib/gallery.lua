@@ -39,7 +39,7 @@ function gallery_new()
             last = 0, -- must be > first and <= first + rows*columns
         },
         overlays = {
-            active = {}, -- array of <=64 strings indicating the file associated to the current thumbnail (false if nothing)
+            active = {}, -- array of <=64 strings indicating the file associated to the current overlay (false if nothing)
             missing = {}, -- associative array of thumbnail path to view index it should be shown at
         },
         selection = 0,
@@ -59,10 +59,8 @@ function gallery_new()
             show_placeholders = true,
             always_show_placeholders = false,
             placeholder_color = '222222',
-            frame_width = 5,
-            frame_roundness = 0,
-            show_text = true,
             text_size = 28,
+            align_text = true,
             accurate = false,
             generate_thumbnails_with_mpv = false,
         },
@@ -322,7 +320,7 @@ function gallery_mt.refresh_scrollbar(gallery)
     scrollbar:append('{\\1c&AAAAAA&}')
     scrollbar:pos(0, 0)
     scrollbar:draw_start()
-    scrollbar:round_rect_cw(x1, y1, x2, y2, gallery.config.frame_roundness)
+    scrollbar:rect_cw(x1, y1, x2, y2)
     scrollbar:draw_stop()
     gallery.ass.scrollbar = scrollbar.text
 end
@@ -339,7 +337,7 @@ function gallery_mt.refresh_selection(gallery)
         selection_ass:append('{\\1a&FF&}')
         selection_ass:pos(0, 0)
         selection_ass:draw_start()
-        selection_ass:round_rect_cw(x, y, x + g.item_size.w, y + g.item_size.h, gallery.config.frame_roundness)
+        selection_ass:rect_cw(x, y, x + g.item_size.w, y + g.item_size.h)
         selection_ass:draw_stop()
     end
     for i = v.first, v.last do
@@ -349,17 +347,16 @@ function gallery_mt.refresh_selection(gallery)
         end
     end
 
-    if gallery.config.show_text then
-        local text, align = gallery.item_to_text(gallery.selection, gallery.items[gallery.selection])
+    for index = v.first, v.last do
+        local text  = gallery.item_to_text(index, gallery.items[index])
         if text ~= "" then
             selection_ass:new_event()
-            local i = (gallery.selection - v.first)
             local an = 5
-            local x, y = gallery:view_index_position(i)
+            local x, y = gallery:view_index_position(index - v.first)
             x = x + g.item_size.w / 2
             y = y + g.item_size.h + g.effective_spacing.h / 2
-            if align then
-                local col = i % g.columns
+            if gallery.config.align_text then
+                local col = index % g.columns
                 if g.columns > 1 then
                     if col == 0 then
                         x = x - g.item_size.w / 2
