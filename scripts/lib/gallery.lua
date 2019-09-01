@@ -412,8 +412,10 @@ function gallery_mt.idle_handler(gallery)
         gallery.pending.selection = nil
         if gallery:ensure_view_valid() then
             gallery:refresh_overlays(false)
+            gallery:ass_show(true, true, false, false)
+        else
+            gallery:ass_show(true, false, false, false)
         end
-        gallery:ass_show(true, true, true, false)
     end
     if gallery.pending.geometry_changed then
         gallery.pending.geometry_changed = false
@@ -421,7 +423,13 @@ function gallery_mt.idle_handler(gallery)
             gallery.too_small()
             return
         end
+        local old_total = gallery.geometry.rows * gallery.geometry.columns
         gallery:compute_geometry()
+        local new_total = gallery.geometry.rows * gallery.geometry.columns
+        for view_index = new_total + 1, old_total do
+            mp.command("overlay-remove " .. view_index - 1)
+            gallery.overlays.active[view_index] = false
+        end
         gallery:ensure_view_valid()
         gallery:refresh_overlays(true)
         gallery:ass_show(true, true, true, true)
