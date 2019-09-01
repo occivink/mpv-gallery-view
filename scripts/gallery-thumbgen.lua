@@ -3,6 +3,7 @@ local msg = require 'mp.msg'
 
 local jobs_queue = {} -- queue of thumbnail jobs
 local failed = {} -- list of failed output paths, to avoid redoing them
+local script_id = mp.get_script_name() .. utils.getpid()
 
 local opts = {
     ytdl_exclude = "",
@@ -200,7 +201,7 @@ function generate_thumbnail(thumbnail_job)
     if file_exists(thumbnail_job.output_path) then return true end
 
     local dir, _ = utils.split_path(thumbnail_job.output_path)
-    local tmp_output_path = utils.join_path(dir, mp.get_script_name())
+    local tmp_output_path = utils.join_path(dir, script_id)
 
     local command = thumbnail_command(
         thumbnail_job.input_path,
