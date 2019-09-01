@@ -5,7 +5,7 @@ local gallery_mt = {}
 gallery_mt.__index = gallery_mt
 
 function gallery_new()
-    return setmetatable({
+    local gallery = setmetatable({
         active = false,
         items = {},
         geometry = {
@@ -39,8 +39,8 @@ function gallery_new()
             last = 0, -- must be > first and <= first + rows*columns
         },
         overlays = {
-            active = {}, -- array of <=64 strings indicating the file associated to the current thumbnail (empty if no file)
-            missing = {}, -- stuff
+            active = {}, -- array of <=64 strings indicating the file associated to the current thumbnail (false if nothing)
+            missing = {}, -- associative array of thumbnail path to view index it should be shown at
         },
         selection = 0,
         pending = {
@@ -59,9 +59,11 @@ function gallery_new()
             show_placeholders = true,
             always_show_placeholders = false,
             placeholder_color = '222222',
+            frame_width = 5,
             frame_roundness = 0,
             show_text = true,
             text_size = 28,
+            accurate = false,
             generate_thumbnails_with_mpv = false,
         },
         ass = {
@@ -75,15 +77,19 @@ function gallery_new()
         too_small = function() return end,
         item_to_overlay_path = function(index, item) return "" end,
         item_to_thumbnail_params = function(index, item) return "", 0 end,
-        item_to_text = function(index, item) return "" end,
+        item_to_text = function(index, item) return "", true end,
         item_to_border = function(index, item) return 0, "" end,
         idle
     }, gallery_mt)
+    for i = 1, gallery.config.max_items do
+        gallery.overlays.active[i] = false
+    end
+    return gallery
 end
 
 function gallery_mt.show_overlay(gallery, index_1, thumb_path)
     local g = gallery.geometry
-    gallery.overlays.active[index_1] = true
+    gallery.overlays.active[index_1] = thumb_path
     local index_0 = index_1 - 1
     local x, y = gallery:view_index_position(index_0)
     mp.commandv("overlay-add",
@@ -96,56 +102,49 @@ function gallery_mt.show_overlay(gallery, index_1, thumb_path)
         tostring(g.item_size.w),
         tostring(g.item_size.h),
         tostring(4*g.item_size.w))
-    mp.osd_message("", 0.01)
-end
-
-function gallery_mt.remove_overlay(gallery, index_1)
-    gallery.overlays.missing[index_1] = nil
-    if not gallery.overlays.active[index_1] then return end
-    gallery.overlays.active[index_1] = false
-    mp.command("overlay-remove " .. index_1 - 1)
-    mp.osd_message("", 0.01)
+    mp.osd_message(" ", 0.01)
 end
 
 function gallery_mt.remove_overlays(gallery)
-    for i = 1, 64 do
-        gallery:remove_overlay(i)
+    for view_index, _ in pairs(gallery.overlays.active) do
+        mp.command("overlay-remove " .. view_index - 1)
+        gallery.overlays.active[view_index] = false
     end
+    gallery.overlays.missing = {}
 end
 
-function file_exists(path)
-    if utils.file_info then -- 0.28+
-        local info = utils.file_info(path)
-        return info ~= nil and info.is_file
-    else
-        local f = io.open(path, "r")
-        if f ~= nil then
-            io.close(f)
-            return true
-        end
-        return false
-    end
+local function file_exists(path)
+    local info = utils.file_info(path)
+    return info ~= nil and info.is_file
 end
-
 
 function gallery_mt.refresh_overlays(gallery, force)
     local todo = {}
     local o = gallery.overlays
     local g = gallery.geometry
     o.missing = {}
-    for i = 1, 64 do
-        local index = gallery.view.first + i - 1
-        if index <= gallery.view.last then
+    for view_index = 1, g.rows * g.columns do
+        local index = gallery.view.first + view_index - 1
+        local active = o.active[view_index]
+        if index <= #gallery.items then
             local thumb_path = gallery.item_to_overlay_path(index, gallery.items[index])
-            if file_exists(thumb_path) then
-                gallery:show_overlay(i, thumb_path)
+            if not force and active == thumb_path then
+                -- nothing to do
+            elseif file_exists(thumb_path) then
+                gallery:show_overlay(view_index, thumb_path)
             else
-                gallery:remove_overlay(i)
-                o.missing[i] = { view_index = i, thumb_path = thumb_path }
+                -- need to generate that thumbnail
+                o.active[view_index] = false
+                mp.command("overlay-remove " .. view_index - 1)
+                o.missing[thumb_path] = view_index
                 todo[#todo + 1] = { index = index, output = thumb_path }
             end
         else
-            gallery:remove_overlay(i)
+            -- might happen if we're close to the end of gallery.items
+            if active ~= false then
+                o.active[view_index] = false
+                mp.command("overlay-remove " .. view_index - 1)
+            end
         end
     end
     if #gallery.generators >= 1 then
@@ -161,7 +160,7 @@ function gallery_mt.refresh_overlays(gallery, force)
                 tostring(g.item_size.h),
                 time,
                 t.output,
-                "false", -- accurate
+                gallery.config.accurate and "true" or "false",
                 gallery.config.generate_thumbnails_with_mpv and "true" or "false"
             )
         end
@@ -212,12 +211,14 @@ function gallery_mt.ensure_view_valid(gallery)
     local g = gallery.geometry
     local selection_row = math.floor((gallery.selection - 1) / g.columns)
     local max_thumbs = g.rows * g.columns
+    local changed = false
 
     if v.last >= #gallery.items then
         v.last = #gallery.items
         last_row = math.floor((v.last - 1) / g.columns)
         first_row = math.max(0, last_row - g.rows + 1)
         v.first = 1 + first_row * g.columns
+        changed = true
     elseif v.first == 0 or v.last == 0 or v.last - v.first + 1 ~= max_thumbs then
         -- special case: the number of possible thumbnails was changed
         -- just recreate the view such that the selection is in the middle row
@@ -231,19 +232,22 @@ function gallery_mt.ensure_view_valid(gallery)
         end
         v.first = 1 + row_first * g.columns
         v.last = math.min(#gallery.items, v.first - 1 + max_thumbs)
-        return
+        return true
     end
 
     if gallery.selection < v.first then
         -- the selection is now on the first line
         v.first = selection_row * g.columns + 1
         v.last = math.min(#gallery.items, v.first + max_thumbs - 1)
+        changed = true
     elseif gallery.selection > v.last then
         -- the selection is now on the last line
         v.last = (selection_row + 1) * g.columns
         v.first = math.max(1, v.last - max_thumbs + 1)
         v.last = math.min(#gallery.items, v.last)
+        changed = true
     end
+    return changed
 end
 
 -- ass related stuff
@@ -328,9 +332,7 @@ function gallery_mt.refresh_selection(gallery)
     local v = gallery.view
     local g = gallery.geometry
     local draw_frame = function(index, size, color)
-        if index < v.first or index > v.last then return end
-        local i = index - v.first
-        local x, y = gallery:view_index_position(i)
+        local x, y = gallery:view_index_position(index - v.first)
         selection_ass:new_event()
         selection_ass:append('{\\bord' .. size ..'}')
         selection_ass:append('{\\3c&'.. color ..'&}')
@@ -408,8 +410,9 @@ function gallery_mt.idle_handler(gallery)
     if gallery.pending.selection then
         gallery.selection = gallery.pending.selection
         gallery.pending.selection = nil
-        gallery:ensure_view_valid()
-        gallery:refresh_overlays(false)
+        if gallery:ensure_view_valid() then
+            gallery:refresh_overlays(false)
+        end
         gallery:ass_show(true, true, true, false)
     end
     if gallery.pending.geometry_changed then
@@ -433,16 +436,13 @@ end
 
 function gallery_mt.thumbnail_generated(gallery, thumb_path)
     if not gallery.active then return end
-    for index, missing in pairs(gallery.overlays.missing) do
-        if missing.thumb_path == thumb_path then
-            gallery:show_overlay(missing.view_index, thumb_path)
-            if not gallery.config.always_show_placeholders then
-                gallery:ass_show(false, false, true, false)
-            end
-            gallery.overlays.missing[index] = nil
-            return
-        end
+    local view_index = gallery.overlays.missing[thumb_path]
+    if view_index == nil then return end
+    gallery:show_overlay(view_index, thumb_path)
+    if not gallery.config.always_show_placeholders then
+        gallery:ass_show(false, false, true, false)
     end
+    gallery.overlays.missing[thumb_path] = nil
 end
 
 function gallery_mt.add_generator(gallery, generator_name)
@@ -469,7 +469,7 @@ function gallery_mt.activate(gallery, selection)
     gallery.selection = selection
     if not gallery:compute_geometry() then return false end
     gallery:ensure_view_valid()
-    gallery:refresh_overlays(true)
+    gallery:refresh_overlays(false)
     gallery:ass_show(true, true, true, true)
     gallery.idle = function() gallery:idle_handler() end
     mp.register_idle(gallery.idle)

@@ -309,20 +309,18 @@ function start_gallery_view(record_time)
     init()
     playlist = mp.get_property_native("playlist")
     if #playlist == 0 then return end
-    local ww, wh = mp.get_osd_size()
-
     gallery.items = playlist
+
     set_geometry()
-
     if not gallery:enough_space() then return end
-
     for _, prop in ipairs({ "osd-width", "osd-height" }) do
         mp.observe_property(prop, "native", window_size_changed)
     end
     mp.set_property_bool("pause", true)
+
     local pos = mp.get_property_number("playlist-pos-1")
-    gallery:activate(pos or 1)
     setup_ui_handlers()
+    gallery:activate(pos or 1)
 end
 
 function quit_gallery_view(select)
