@@ -177,7 +177,10 @@ function thumbnail_command(input_path, width, height, take_thumbnail_at, output_
     else
         out = { "mpv", input_path }
         if take_thumbnail_at ~= "0" and is_video(input_path) then
-            add({ "--hr-seek=no", "--start", take_thumbnail_at })
+            if not accurate then
+                add({ "--hr-seek=no"})
+            end
+            add({ "--start", take_thumbnail_at })
         end
         add({
             "--no-config", "--msg-level=all=no",
@@ -237,8 +240,8 @@ function handle_events(wait)
                     height = tonumber(e.args[5]),
                     take_thumbnail_at = e.args[6],
                     output_path = e.args[7],
-                    accurate = (e.args[7] == "true"),
-                    with_mpv = (e.args[8] == "true"),
+                    accurate = (e.args[8] == "true"),
+                    with_mpv = (e.args[9] == "true"),
                 }
                 if e.args[1] == "push-thumbnail-front" then
                     jobs_queue[#jobs_queue + 1] = thumbnail_job
