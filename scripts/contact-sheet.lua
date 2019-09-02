@@ -271,6 +271,7 @@ function start()
         mp.observe_property(prop, "native", window_size_changed)
     end
     --mp.set_property_bool("pause", true)
+    mp.register_event("end-file", stop)
 
     setup_ui_handlers()
     gallery:activate(selection)
@@ -284,6 +285,7 @@ end
 
 function stop()
     mp.unobserve_property(window_size_changed)
+    mp.unregister_event(stop)
     --mp.set_property_bool("pause", false)
     gallery:deactivate()
     teardown_ui_handlers()
