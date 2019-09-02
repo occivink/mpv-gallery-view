@@ -158,7 +158,7 @@ function thumbnail_command(input_path, width, height, take_thumbnail_at, output_
                     end
                 end
             else
-                add({ "-ss", tonumber(take_thumbnail_at) })
+                add({ "-ss", take_thumbnail_at })
             end
         end
         if not accurate then
