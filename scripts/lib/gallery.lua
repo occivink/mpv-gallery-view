@@ -9,32 +9,14 @@ function gallery_new()
         active = false,
         items = {},
         geometry = {
-            window = {
-                0,
-                0,
-            },
-            gallery_position = {
-                0,
-                0,
-            },
-            gallery_size = {
-                 0,
-                 0,
-            },
-            min_spacing = {
-                0,
-                0,
-            },
-            thumbnail_size = {
-                0,
-                0,
-            },
+            window = { 0, 0  },
+            gallery_position = { 0, 0  },
+            gallery_size = { 0, 0  },
+            min_spacing = { 0, 0  },
+            thumbnail_size = { 0, 0  },
             rows = 0,
             columns = 0,
-            effective_spacing = {
-                0,
-                0,
-            }
+            effective_spacing = { 0, 0  },
         },
         view = { -- 1-based indices into the "playlist" array
             first = 0, -- must be equal to N*columns
@@ -57,7 +39,7 @@ function gallery_new()
             scrollbar = true,
             scrollbar_left_side = false,
             scrollbar_min_size = 10,
-            max_items = 64,
+            max_thumbnails = 64,
             show_placeholders = true,
             always_show_placeholders = false,
             placeholder_color = '222222',
@@ -84,7 +66,7 @@ function gallery_new()
         idle,
         window_changed
     }, gallery_mt)
-    for i = 1, gallery.config.max_items do
+    for i = 1, gallery.config.max_thumbnails do
         gallery.overlays.active[i] = false
     end
     return gallery
@@ -195,8 +177,8 @@ function gallery_mt.compute_geometry(gallery)
     local g = gallery.geometry
     g.rows = math.floor((g.gallery_size[2] - g.min_spacing[2]) / (g.thumbnail_size[2] + g.min_spacing[2]))
     g.columns = math.floor((g.gallery_size[1] - g.min_spacing[1]) / (g.thumbnail_size[1] + g.min_spacing[1]))
-    if (g.rows * g.columns > gallery.config.max_items) then
-        local r = math.sqrt(g.rows * g.columns / gallery.config.max_items)
+    if (g.rows * g.columns > gallery.config.max_thumbnails) then
+        local r = math.sqrt(g.rows * g.columns / gallery.config.max_thumbnails)
         g.rows = math.floor(g.rows / r)
         g.columns = math.floor(g.columns / r)
     end
@@ -360,7 +342,7 @@ function gallery_mt.refresh_selection(gallery)
             x = x + g.thumbnail_size[1] / 2
             y = y + g.thumbnail_size[2] + g.effective_spacing[2] / 2
             if gallery.config.align_text then
-                local col = index % g.columns
+                local col = (index - v.first) % g.columns
                 if g.columns > 1 then
                     if col == 0 then
                         x = x - g.thumbnail_size[1] / 2
@@ -479,6 +461,7 @@ end
 
 function gallery_mt.activate(gallery, selection)
     if gallery.active then return false end
+    if #gallery.items == 0 then return false end
     local ww, wh = mp.get_osd_size()
     gallery.set_geometry_props(ww, wh)
     if not gallery:enough_space() then return false end

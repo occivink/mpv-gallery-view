@@ -5,7 +5,7 @@ local gallery = require 'lib/gallery'
 local ON_WINDOWS = (package.config:sub(1,1) ~= "/")
 
 local opts = {
-    thumbs_dir = ON_WINDOWS and "%APPDATA%\\mpv\\gallery-thumbs-dir" or ".",
+    thumbs_dir = ON_WINDOWS and "%APPDATA%\\mpv\\gallery-thumbs-dir" or "~/.mpv_thumbs_dir/",
     generate_thumbnails_with_mpv = false,
 
     --gallery_position = "{30, 30}",
@@ -14,30 +14,35 @@ local opts = {
     --thumbnail_size = "(ww * wh <= 1280 * 720) and {192, 108} or (ww * wh <= 1920 * 1080) and {288, 162} or {384, 216}",
 
     -- basic centered grid
-    --gallery_position = "{ww/20, wh/20}",
+    --gallery_position = "{ ww/20, wh/20 }",
     --gallery_size = "{ww - 2*gx, wh - 2*gy}",
     --min_spacing = "{15, 15}",
     --thumbnail_size = "(ww * wh <= 1280 * 720) and {192, 108} or (ww * wh <= 1920 * 1080) and {288, 162} or {384, 216}",
 
     -- grid with minimum margins
     gallery_position = "{ (ww - gw) / 2, (wh - gh) / 2}",
-    gallery_size = "{sw + (sw + tw) * math.floor(ww - sw) / (sw + tw)), sh + (sh + th) * math.floor(wh - sh) / (sh + th)) }",
+    gallery_size = "{sw + (sw + tw) * math.floor((ww - sw) / (sw + tw)), sh + (sh + th) * math.floor((wh - sh) / (sh + th)) }",
     min_spacing = "{15, 15}",
     thumbnail_size = "(ww * wh <= 1280 * 720) and {192, 108} or (ww * wh <= 1920 * 1080) and {288, 162} or {384, 216}",
-
-    toggle_behaves_as_accept = true,
-
     max_thumbnails = 64,
 
-    time_distance = "1%",
+    seek_on_toggle_off = false,
+    close_on_seek = true,
+    pause_on_start = true,
+    resume_on_stop = true,
+
+    time_distance = "2%",
 
     show_text = "selection",
     text_size = 28,
 
-    normal_frame_color = "BBBBBB",
+    background_color = "333333",
+    background_opacity = "33",
+    normal_border_color = "BBBBBB",
     normal_border_size = 1,
-    selected_frame_color = "DDDDDD",
+    selected_border_color = "DDDDDD",
     selected_border_size = 6,
+    placeholder_color = "222222",
 
     mouse_support = true,
     UP        = "UP",
@@ -54,26 +59,18 @@ local opts = {
 }
 (require 'mp.options').read_options(opts)
 
-function split(input)
-    local ret = {}
-    for str in string.gmatch(input, "([^,]+)") do
-        ret[#ret + 1] = str
-    end
-    return ret
-end
-
-local res = utils.file_info(opts.thumbs_dir)
-if not res or not res.is_dir then
-    msg.error(string.format("Thumbnail directory \"%s\" does not exist", opts.thumbs_dir))
-    return
-end
-
 if ON_WINDOWS then
     opts.thumbs_dir = string.gsub(opts.thumbs_dir, "^%%APPDATA%%", os.getenv("APPDATA") or "%APPDATA%")
 else
     opts.thumbs_dir = string.gsub(opts.thumbs_dir, "^~", os.getenv("HOME") or "~")
 end
 opts.max_thumbnails = math.min(opts.max_thumbnails, 64)
+
+local res = utils.file_info(opts.thumbs_dir)
+if not res or not res.is_dir then
+    msg.error(string.format("Thumbnail directory \"%s\" does not exist", opts.thumbs_dir))
+    return
+end
 
 local sha256
 --[[
@@ -98,9 +95,14 @@ local path_hash = ""
 local duration = 0
 
 gallery.config.accurate = true
-gallery.config.generate_thumbnails_with_mpv = false
+gallery.config.generate_thumbnails_with_mpv = opts.generate_thumbnails_with_mpv
 gallery.config.always_show_placeholders = true
 gallery.config.align_text = false
+gallery.config.placeholder_color = opts.placeholder_color
+gallery.config.background_color = opts.background_color
+gallery.config.background_opacity = opts.background_opacity
+gallery.config.max_thumbnails = opts.max_thumbnails
+gallery.config.text_size = opts.text_size
 
 gallery.too_small = function()
     stop()
@@ -118,9 +120,9 @@ gallery.item_to_thumbnail_params = function(index, item)
 end
 gallery.item_to_border = function(index, item)
     if index == gallery.selection then
-        return opts.selected_border_size, opts.selected_frame_color
+        return opts.selected_border_size, opts.selected_border_color
     else
-        return opts.normal_border_size, opts.normal_frame_color
+        return opts.normal_border_size, opts.normal_border_color
     end
 end
 gallery.item_to_text = function(index, item)
@@ -164,36 +166,41 @@ do
     local bindings = {}
         bindings[opts.FIRST]  = function() gallery.pending.selection = 1 end
         bindings[opts.LAST]   = function() gallery.pending.selection = #gallery.items end
-        bindings[opts.ACCEPT] = function() seek_to(gallery.selection); stop() end
+        bindings[opts.ACCEPT] = function()
+            seek_to_selection()
+            if opts.close_on_seek then stop() end
+        end
         bindings[opts.CANCEL] = function() stop() end
+    if opts.mouse_support then
         bindings["MBTN_LEFT"]  = function()
             local index = gallery:index_at(mp.get_mouse_pos())
             if not index then return end
             if index == gallery.selection then
-                seek_to(gallery.selection)
-                stop()
+                seek_to_selection()
+                if opts.close_on_seek then stop() end
             else
                 gallery.pending.selection = index
             end
         end
         bindings["WHEEL_UP"]   = function() increment_func(- gallery.geometry.columns, false) end
         bindings["WHEEL_DOWN"] = function() increment_func(  gallery.geometry.columns, false) end
+    end
 
-     function setup_ui_handlers()
+    function setup_ui_handlers()
         for key, func in pairs(bindings_repeat) do
-            mp.add_forced_key_binding(key, "gallery-view-"..key, func, {repeatable = true})
+            mp.add_forced_key_binding(key, "contact-sheet-"..key, func, {repeatable = true})
         end
         for key, func in pairs(bindings) do
-            mp.add_forced_key_binding(key, "gallery-view-"..key, func)
+            mp.add_forced_key_binding(key, "contact-sheet-"..key, func)
         end
     end
 
     function teardown_ui_handlers()
         for key, _ in pairs(bindings_repeat) do
-            mp.remove_key_binding("gallery-view-"..key)
+            mp.remove_key_binding("contact-sheet-"..key)
         end
         for key, _ in pairs(bindings) do
-            mp.remove_key_binding("gallery-view-"..key)
+            mp.remove_key_binding("contact-sheet-"..key)
         end
     end
 end
@@ -275,6 +282,8 @@ do
         end
     end
 
+    local show_text = (opts.show_text == "selection" or opts.show_text == "everywhere")
+
     function reset_geometry()
         local g = gallery.geometry
         g.window[1], g.window[2] = mp.get_osd_size()
@@ -287,7 +296,7 @@ do
                 g.thumbnail_size[1], g.thumbnail_size[2]
             )
             -- extrawuerst
-            if names[index] == "min_spacing" then
+            if show_text and names[index] == "min_spacing" then
                 g.min_spacing[2] = math.max(opts.text_size, g.min_spacing[2])
             elseif names[index] == "thumbnail_size" then
                 g.thumbnail_size[1] = math.floor(g.thumbnail_size[1])
@@ -300,9 +309,6 @@ end
 gallery.set_geometry_props = reset_geometry
 
 function normalize_path(path)
-    if string.find(path, "://") then
-        return path
-    end
     path = utils.join_path(utils.getcwd(), path)
     if ON_WINDOWS then
         path = string.gsub(path, "\\", "/")
@@ -321,7 +327,10 @@ local function file_exists(path)
 end
 
 function start()
-    if not mp.get_property_bool("seekable") then return end
+    if not mp.get_property_bool("seekable") then
+        msg.error("Video is not seekable")
+        return
+    end
 
     path = mp.get_property("path")
     if not file_exists(path) then
@@ -330,7 +339,6 @@ function start()
     end
     path_hash = string.sub(sha256(normalize_path(path)), 1, 12)
     duration = mp.get_property_number("duration")
-    local time_pos = mp.get_property_number("time-pos")
     if not duration then return end
     local effective_time_distance
     if string.sub(opts.time_distance, -1) == "%" then
@@ -341,6 +349,7 @@ function start()
     local time = 0
     local times = {}
     local selection = 0
+    local time_pos = mp.get_property_number("time-pos")
     while time < duration do
         if time < time_pos + 0.1 then
             selection = selection + 1
@@ -351,21 +360,25 @@ function start()
     gallery.items = times
 
     if not gallery:activate(selection) then return end
-    --mp.set_property_bool("pause", true)
+    if opts.pause_on_start then
+        mp.set_property_bool("pause", true)
+    end
     mp.register_event("end-file", stop)
 
     setup_ui_handlers()
 end
 
-function seek_to(index)
-    local time = gallery.items[index]
+function seek_to_selection()
+    local time = gallery.items[gallery.selection]
     if not time then return end
     mp.commandv("seek", time, "absolute")
 end
 
 function stop()
     mp.unregister_event(stop)
-    --mp.set_property_bool("pause", false)
+    if opts.resume_on_stop then
+        mp.set_property_bool("pause", false)
+    end
     gallery:deactivate()
     teardown_ui_handlers()
 end
@@ -374,6 +387,7 @@ function toggle()
     if not gallery.active then
         start()
     else
+        if opts.seek_on_toggle_off then seek_to_selection() end
         stop()
     end
 end
@@ -386,6 +400,7 @@ mp.register_script_message("thumbnails-generator-broadcast", function(generator_
      gallery:add_generator(generator_name)
 end)
 
-mp.add_key_binding(nil, "open-contact-sheet", start)
-mp.add_key_binding(nil, "close-contact-sheet", stop)
-mp.add_key_binding(nil, "toggle-contact-sheet", toggle)
+mp.add_key_binding(nil, "contact-sheet-open", start)
+mp.add_key_binding(nil, "contact-sheet-close", stop)
+mp.add_key_binding(nil, "contact-sheet-toggle", toggle)
+mp.add_key_binding(nil, "contact-sheet-seek", seek_to_selection)
