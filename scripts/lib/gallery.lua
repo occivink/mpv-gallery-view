@@ -9,14 +9,14 @@ function gallery_new()
         active = false,
         items = {},
         geometry = {
-            window = { 0, 0  },
-            gallery_position = { 0, 0  },
-            gallery_size = { 0, 0  },
-            min_spacing = { 0, 0  },
-            thumbnail_size = { 0, 0  },
+            window = { 0, 0 },
+            gallery_position = { 0, 0 },
+            gallery_size = { 0, 0 },
+            min_spacing = { 0, 0 },
+            thumbnail_size = { 0, 0 },
             rows = 0,
             columns = 0,
-            effective_spacing = { 0, 0  },
+            effective_spacing = { 0, 0 },
         },
         view = { -- 1-based indices into the "playlist" array
             first = 0, -- must be equal to N*columns

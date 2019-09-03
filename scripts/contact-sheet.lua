@@ -274,7 +274,7 @@ do
             local str = ""
             for index, resolved in ipairs(resolved) do
                 if not resolved then
-                    str = str .. ", " .. names[index]
+                    str = (str == "" and "" or (str .. ", ")) .. names[index]
                 end
             end
             msg.error("Circular dependency between " .. str)
@@ -284,7 +284,7 @@ do
 
     local show_text = (opts.show_text == "selection" or opts.show_text == "everywhere")
 
-    function reset_geometry()
+    gallery.set_geometry_props = function()
         local g = gallery.geometry
         g.window[1], g.window[2] = mp.get_osd_size()
         for _, index in ipairs(order) do
@@ -306,8 +306,6 @@ do
     end
 end
 
-gallery.set_geometry_props = reset_geometry
-
 function normalize_path(path)
     path = utils.join_path(utils.getcwd(), path)
     if ON_WINDOWS then
@@ -321,11 +319,6 @@ function normalize_path(path)
     return path
 end
 
-local function file_exists(path)
-    local info = utils.file_info(path)
-    return info ~= nil and info.is_file
-end
-
 function start()
     if not mp.get_property_bool("seekable") then
         msg.error("Video is not seekable")
@@ -333,7 +326,8 @@ function start()
     end
 
     path = mp.get_property("path")
-    if not file_exists(path) then
+    local info = utils.file_info(path)
+    if not info or not info.is_file then
         msg.error("Remote videos are not supported")
         return
     end

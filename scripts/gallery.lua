@@ -295,7 +295,7 @@ do
             local str = ""
             for index, resolved in ipairs(resolved) do
                 if not resolved then
-                    str = str .. ", " .. names[index]
+                    str = (str == "" and "" or (str .. ", ")) .. names[index]
                 end
             end
             msg.error("Circular dependency between " .. str)
