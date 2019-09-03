@@ -44,8 +44,6 @@ local opts = {
     selected_flagged_frame_color = "BAFFCA",
     flagged_file_path = "./mpv_gallery_flagged",
 
-    max_generators = 8,
-
     mouse_support = true,
     UP        = "UP",
     DOWN      = "DOWN",
@@ -109,8 +107,8 @@ flags = {}
 resume = {}
 hash_cache = {}
 
-gallery.geometry.item_size.w = opts.thumbnail_width
-gallery.geometry.item_size.h = opts.thumbnail_height
+gallery.geometry.thumbnail_size.w = opts.thumbnail_width
+gallery.geometry.thumbnail_size.h = opts.thumbnail_height
 gallery.geometry.min_spacing.h = opts.show_filename and math.max(opts.text_size, opts.margin_y) or opts.margin_y
 gallery.geometry.min_spacing.w = opts.margin_x
 gallery.too_small = function()
@@ -123,7 +121,7 @@ gallery.item_to_overlay_path = function(index, item)
         filename_hash = string.sub(sha256(normalize_path(filename)), 1, 12)
         hash_cache[filename] = filename_hash
     end
-    local thumb_filename = string.format("%s_%d_%d", filename_hash, gallery.geometry.item_size.w, gallery.geometry.item_size.h)
+    local thumb_filename = string.format("%s_%d_%d", filename_hash, gallery.geometry.thumbnail_size.w, gallery.geometry.thumbnail_size.h)
     return utils.join_path(opts.thumbs_dir, thumb_filename)
 end
 gallery.item_to_thumbnail_params = function(index, item)
@@ -294,15 +292,10 @@ function set_geometry()
     local ww, wh = mp.get_osd_size()
     gallery.geometry.window.w = ww
     gallery.geometry.window.h = wh
-    gallery.geometry.draw_area.x = ww - 300
-    gallery.geometry.draw_area.y = 30
-    gallery.geometry.draw_area.w = 300 - 30
-    gallery.geometry.draw_area.h = wh - 2 * 30
-end
-
-function window_size_changed()
-    set_geometry()
-    gallery.pending.geometry_changed = true
+    gallery.geometry.gallery_position.x = ww - 300
+    gallery.geometry.gallery_position.y = 30
+    gallery.geometry.gallery_size.w = 300 - 30
+    gallery.geometry.gallery_size.h = wh - 2 * 30
 end
 
 function start_gallery_view(record_time)

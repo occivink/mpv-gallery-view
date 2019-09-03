@@ -8,10 +8,22 @@ local opts = {
     thumbs_dir = ON_WINDOWS and "%APPDATA%\\mpv\\gallery-thumbs-dir" or ".",
     generate_thumbnails_with_mpv = false,
 
-    gallery_position = "{ww / 30, 30}",
-    gallery_size = "{ww / 3, wh - 60}",
+    --gallery_position = "{30, 30}",
+    --gallery_size = "{tw + 4*sw, wh - 2*gy }",
+    --min_spacing = "{15, 15}",
+    --thumbnail_size = "(ww * wh <= 1280 * 720) and {192, 108} or (ww * wh <= 1920 * 1080) and {288, 162} or {384, 216}",
+
+    -- basic centered grid
+    --gallery_position = "{ww/20, wh/20}",
+    --gallery_size = "{ww - 2*gx, wh - 2*gy}",
+    --min_spacing = "{15, 15}",
+    --thumbnail_size = "(ww * wh <= 1280 * 720) and {192, 108} or (ww * wh <= 1920 * 1080) and {288, 162} or {384, 216}",
+
+    -- grid with minimum margins
+    gallery_position = "{ (ww - gw) / 2, (wh - gh) / 2}",
+    gallery_size = "{sw + (sw + tw) * math.floor(ww - sw) / (sw + tw)), sh + (sh + th) * math.floor(wh - sh) / (sh + th)) }",
     min_spacing = "{15, 15}",
-    thumbnail_size = "(ww * wh <= 1280 * 720) and {192, 108} or (ww * wh <= 1920 * 1080) and {288, 162} or {384,216}",
+    thumbnail_size = "(ww * wh <= 1280 * 720) and {192, 108} or (ww * wh <= 1920 * 1080) and {288, 162} or {384, 216}",
 
     toggle_behaves_as_accept = true,
 
@@ -79,11 +91,11 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 do local b,c,d,e,f;if bit32 then b,c,d,e,f=bit32.band,bit32.rrotate,bit32.bxor,bit32.rshift,bit32.bnot else f=function(g)g=math.floor(tonumber(g))%0x100000000;return(-g-1)%0x100000000 end;local h={[0]={[0]=0,0,0,0},[1]={[0]=0,1,0,1},[2]={[0]=0,0,2,2},[3]={[0]=0,1,2,3}}local i={[0]={[0]=0,1,2,3},[1]={[0]=1,0,3,2},[2]={[0]=2,3,0,1},[3]={[0]=3,2,1,0}}local function j(k,l,m,n,o)for p=1,m do l[p]=math.floor(tonumber(l[p]))%0x100000000 end;local q=1;local r=0;for s=0,31,2 do local t=n;for p=1,m do t=o[t][l[p]%4]l[p]=math.floor(l[p]/4)end;r=r+t*q;q=q*4 end;return r end;b=function(...)return j('band',{...},select('#',...),3,h)end;d=function(...)return j('bxor',{...},select('#',...),0,i)end;e=function(g,u)g=math.floor(tonumber(g))%0x100000000;u=math.floor(tonumber(u))u=math.min(math.max(-32,u),32)return math.floor(g/2^u)%0x100000000 end;c=function(g,u)g=math.floor(tonumber(g))%0x100000000;u=-math.floor(tonumber(u))%32;local g=g*2^u;return g%0x100000000+math.floor(g/0x100000000)end end;local v={0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2}local function w(n)return string.gsub(n,".",function(t)return string.format("%02x",string.byte(t))end)end;local function x(y,z)local n=""for p=1,z do local A=y%256;n=string.char(A)..n;y=(y-A)/256 end;return n end;local function B(n,p)local z=0;for p=p,p+3 do z=z*256+string.byte(n,p)end;return z end;local function C(D,E)local F=-(E+1+8)%64;E=x(8*E,8)D=D.."\128"..string.rep("\0",F)..E;return D end;local function G(H)H[1]=0x6a09e667;H[2]=0xbb67ae85;H[3]=0x3c6ef372;H[4]=0xa54ff53a;H[5]=0x510e527f;H[6]=0x9b05688c;H[7]=0x1f83d9ab;H[8]=0x5be0cd19;return H end;local function I(D,p,H)local J={}for K=1,16 do J[K]=B(D,p+(K-1)*4)end;for K=17,64 do local L=J[K-15]local M=d(c(L,7),c(L,18),e(L,3))L=J[K-2]local N=d(c(L,17),c(L,19),e(L,10))J[K]=J[K-16]+M+J[K-7]+N end;local O,s,t,P,Q,R,S,T=H[1],H[2],H[3],H[4],H[5],H[6],H[7],H[8]for p=1,64 do local M=d(c(O,2),c(O,13),c(O,22))local U=d(b(O,s),b(O,t),b(s,t))local V=M+U;local N=d(c(Q,6),c(Q,11),c(Q,25))local W=d(b(Q,R),b(f(Q),S))local X=T+N+W+v[p]+J[p]T=S;S=R;R=Q;Q=P+X;P=t;t=s;s=O;O=X+V end;H[1]=b(H[1]+O)H[2]=b(H[2]+s)H[3]=b(H[3]+t)H[4]=b(H[4]+P)H[5]=b(H[5]+Q)H[6]=b(H[6]+R)H[7]=b(H[7]+S)H[8]=b(H[8]+T)end;local function Y(H)return w(x(H[1],4)..x(H[2],4)..x(H[3],4)..x(H[4],4)..x(H[5],4)..x(H[6],4)..x(H[7],4)..x(H[8],4))end;local Z={}sha256=function(D)D=C(D,#D)local H=G(Z)for p=1,#D,64 do I(D,p,H)end;return Y(H)end end
 -- end of sha code
 
-gallery = gallery_new()
+local gallery = gallery_new()
 
-path = ""
-path_hash = ""
-duration = 0
+local path = ""
+local path_hash = ""
+local duration = 0
 
 gallery.config.accurate = true
 gallery.config.generate_thumbnails_with_mpv = false
@@ -97,8 +109,8 @@ gallery.item_to_overlay_path = function(index, item)
     local thumb_filename = string.format("%s_%u_%d_%d",
         path_hash,
         item * 100,
-        gallery.geometry.item_size.w,
-        gallery.geometry.item_size.h)
+        gallery.geometry.thumbnail_size[1],
+        gallery.geometry.thumbnail_size[2])
     return utils.join_path(opts.thumbs_dir, thumb_filename)
 end
 gallery.item_to_thumbnail_params = function(index, item)
@@ -186,42 +198,106 @@ do
     end
 end
 
-local define_functions, err = loadstring("" ..
-"function geom_gallery_position(ww, wh)" ..
-"\n    return unpack(" .. opts.gallery_position .. ")" ..
-"\nend" ..
-"\nfunction geom_gallery_size(ww, wh)" ..
-"\n    return unpack(" .. opts.gallery_size .. ")" ..
-"\nend" ..
-"\nfunction geom_min_spacing(ww, wh)" ..
-"\n    return unpack(" .. opts.min_spacing .. ")" ..
-"\nend" ..
-"\nfunction geom_thumbnail_size(ww, wh)" ..
-"\n    return unpack(" .. opts.thumbnail_size .. ")" ..
-"\nend")
-if not define_functions then
-    msg.error("Error") -- TODO
-    return
-end
-define_functions()
-
-function set_geometry()
-    local ww, wh = mp.get_osd_size()
-    gallery.geometry.window.w = ww
-    gallery.geometry.window.h = wh
-    gallery.geometry.draw_area.x, gallery.geometry.draw_area.y = geom_gallery_position(ww, wh)
-    gallery.geometry.draw_area.w, gallery.geometry.draw_area.h = geom_gallery_size(ww, wh)
-    gallery.geometry.min_spacing.w, gallery.geometry.min_spacing.h = geom_min_spacing(ww, wh)
-    if opts.show_text == "selection" or opts.show_text == "everywhere" then
-        gallery.geometry.min_spacing.h = math.max(opts.text_size, gallery.geometry.min_spacing.h)
+-- the purpose of this highly-convoluted code is to handle the geometries of the gallery
+-- dynamically, while computing the different properties in the correct order
+-- so that they can reference one another (barring cyclical dependencies)
+do
+    local geometry_functions = loadstring(string.format([[
+    return {
+    function(ww, wh, gx, gy, gw, gh, sw, sh, tw, th)
+        return %s
+    end,
+    function(ww, wh, gx, gy, gw, gh, sw, sh, tw, th)
+        return %s
+    end,
+    function(ww, wh, gx, gy, gw, gh, sw, sh, tw, th)
+        return %s
+    end,
+    function(ww, wh, gx, gy, gw, gh, sw, sh, tw, th)
+        return %s
     end
-    gallery.geometry.item_size.w, gallery.geometry.item_size.h = geom_thumbnail_size(ww, wh)
+    }]], opts.gallery_position, opts.gallery_size, opts.min_spacing, opts.thumbnail_size))()
+
+    local names = { "gallery_position", "gallery_size", "min_spacing", "thumbnail_size" }
+    local order = {} -- the order in which the 4 properties should be computed, based on inter-dependencies
+
+    -- build the dependency matrix
+    local patterns = { "g[xy]", "g[wh]", "s[wh]", "t[wh]" }
+    local deps = {}
+    for i = 1,4 do
+        for j = 1,4 do
+            local i_depends_on_j = (string.find(opts[names[i]], patterns[j]) ~= nil)
+            if i == j and i_depends_on_j then
+                msg.error(names[i] .. " depends on itself")
+                return
+            end
+            deps[i * 4 + j] = i_depends_on_j
+        end
+    end
+
+    local function has_deps(index)
+        for j = 1,4 do
+            if deps[index * 4 + j] then
+                return true
+            end
+        end
+        return false
+    end
+    local num_resolved = 0
+    local resolved = { false, false, false, false }
+    while true do
+        local resolved_one = false
+        for i = 1, 4 do
+            if resolved[i] then
+                -- nothing to do
+            elseif not has_deps(i) then
+                order[#order + 1] = i
+                -- since i has no deps, anything that depends on it might as well not
+                for j = 1, 4 do
+                    deps[j * 4 + i] = false
+                end
+                resolved[i] = true
+                resolved_one = true
+                num_resolved = num_resolved + 1
+            end
+        end
+        if num_resolved == 4 then
+            break
+        elseif not resolved_one then
+            local str = ""
+            for index, resolved in ipairs(resolved) do
+                if not resolved then
+                    str = str .. ", " .. names[index]
+                end
+            end
+            msg.error("Circular dependency between " .. str)
+            return
+        end
+    end
+
+    function reset_geometry()
+        local g = gallery.geometry
+        g.window[1], g.window[2] = mp.get_osd_size()
+        for _, index in ipairs(order) do
+            g[names[index]] = geometry_functions[index](
+                g.window[1], g.window[2],
+                g.gallery_position[1], g.gallery_position[2],
+                g.gallery_size[1], g.gallery_size[2],
+                g.min_spacing[1], g.min_spacing[2],
+                g.thumbnail_size[1], g.thumbnail_size[2]
+            )
+            -- extrawuerst
+            if names[index] == "min_spacing" then
+                g.min_spacing[2] = math.max(opts.text_size, g.min_spacing[2])
+            elseif names[index] == "thumbnail_size" then
+                g.thumbnail_size[1] = math.floor(g.thumbnail_size[1])
+                g.thumbnail_size[2] = math.floor(g.thumbnail_size[2])
+            end
+        end
+    end
 end
 
-function window_size_changed()
-    set_geometry()
-    gallery.pending.geometry_changed = true
-end
+gallery.set_geometry_props = reset_geometry
 
 function normalize_path(path)
     if string.find(path, "://") then
@@ -239,10 +315,19 @@ function normalize_path(path)
     return path
 end
 
+local function file_exists(path)
+    local info = utils.file_info(path)
+    return info ~= nil and info.is_file
+end
+
 function start()
     if not mp.get_property_bool("seekable") then return end
 
     path = mp.get_property("path")
+    if not file_exists(path) then
+        msg.error("Remote videos are not supported")
+        return
+    end
     path_hash = string.sub(sha256(normalize_path(path)), 1, 12)
     duration = mp.get_property_number("duration")
     local time_pos = mp.get_property_number("time-pos")
@@ -265,16 +350,11 @@ function start()
     end
     gallery.items = times
 
-    set_geometry()
-    if not gallery:enough_space() then return end
-    for _, prop in ipairs({ "osd-width", "osd-height" }) do
-        mp.observe_property(prop, "native", window_size_changed)
-    end
+    if not gallery:activate(selection) then return end
     --mp.set_property_bool("pause", true)
     mp.register_event("end-file", stop)
 
     setup_ui_handlers()
-    gallery:activate(selection)
 end
 
 function seek_to(index)
@@ -284,7 +364,6 @@ function seek_to(index)
 end
 
 function stop()
-    mp.unobserve_property(window_size_changed)
     mp.unregister_event(stop)
     --mp.set_property_bool("pause", false)
     gallery:deactivate()
