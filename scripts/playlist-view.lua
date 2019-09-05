@@ -135,7 +135,7 @@ gallery.item_to_border = function(index, item)
     end
 end
 gallery.item_to_text = function(index, item)
-    if index ~= gallery.selection then return "", false end
+    if not opts.show_text or index ~= gallery.selection then return "", false end
     local f
     if opts.show_title and item.title then
         f = item.title
