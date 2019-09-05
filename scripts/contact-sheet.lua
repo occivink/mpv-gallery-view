@@ -21,9 +21,9 @@ local opts = {
 
     -- grid with minimum margins
     gallery_position = "{ (ww - gw) / 2, (wh - gh) / 2}",
-    gallery_size = "{sw + (sw + tw) * math.floor((ww - sw) / (sw + tw)), sh + (sh + th) * math.floor((wh - sh) / (sh + th)) }",
-    min_spacing = "{15, 15}",
-    thumbnail_size = "(ww * wh <= 1280 * 720) and {192, 108} or (ww * wh <= 1920 * 1080) and {288, 162} or {384, 216}",
+    gallery_size = "{ 9 * ww / 10, 9 * wh / 10 }",
+    min_spacing = "{ 15, 15 }",
+    thumbnail_size = "(ww * wh <= 1366 * 768) and {192, 108} or {288, 162}",
     max_thumbnails = 64,
 
     seek_on_toggle_off = false,

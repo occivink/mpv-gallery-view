@@ -11,7 +11,7 @@ local opts = {
     gallery_position = "{ (ww - gw) / 2, (wh - gh) / 2}",
     gallery_size = "{ 9 * ww / 10, 9 * wh / 10 }",
     min_spacing = "{ 15, 15 }",
-    thumbnail_size = "{ 288, 162 }",
+    thumbnail_size = "(ww * wh <= 1366 * 768) and {192, 108} or {288, 162}",
     max_thumbnails = 64,
 
     take_thumbnail_at = "20%",
