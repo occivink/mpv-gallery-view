@@ -374,6 +374,9 @@ function start(record_time)
     gallery.items = playlist
 
     local pos = mp.get_property_number("playlist-pos-1")
+    if record_time then
+        resume[gallery.items[pos].filename] = mp.get_property_number("time-pos")
+    end
     if not gallery:activate(pos or 1) then return end
     if opts.pause_on_start then
         mp.set_property_bool("pause", true)
@@ -387,7 +390,8 @@ function load_selection()
     mp.set_property("playlist-pos-1", gallery.selection)
     local s = resume[gallery.items[gallery.selection].filename]
     if s then
-        mp.commandv("seek", s.time, "absolute")
+        -- FIXME need to wait for the file to be loaded
+        mp.commandv("seek", s, "absolute")
     end
 end
 
