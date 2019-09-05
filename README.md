@@ -1,49 +1,46 @@
-Gallery-view script for [mpv](https://github.com/mpv-player/mpv). Shows thumbnails of playlist entries in a grid view. Works with images and videos alike.
+Playlist view and [contact sheet](https://en.wikipedia.org/wiki/Contact_print) scripts for [mpv](https://github.com/mpv-player/mpv).
 
 [![demo](https://i.vimeocdn.com/filter/overlay?src0=https%3A%2F%2Fi.vimeocdn.com%2Fvideo%2F675014837_1280x720.jpg&src1=https%3A%2F%2Ff.vimeocdn.com%2Fimages_v6%2Fshare%2Fplay_icon_overlay.png)](https://vimeo.com/249226823)
 
 # Important
 
+* **Make sure that the thumbnail directory exists for thumbnail generation to work.**
 * **The default thumbnail directory is probably not appropriate for your system.** See Installation for instructions on how to change it.
-* **Make sure that the thumbnail directory exists for auto-generation to work.**
-* **Also make sure to have ffmpeg (and ffprobe) in your PATH.** Or use mpv for thumbnails generation (not recommended : slightly slower, no transparency), see settings.
-* The gallery is slower when using lua5.1, if possible use lua5.2.
 
 # Installation
 
-Copy `scripts/gallery.lua` to your mpv scripts directory.
+Copy everything in `scripts/` to your mpv scripts directory.
 
-If you want on-demand thumbnail generation, copy `scripts/gallery-thumbgen.lua` too. You can make multiple copies of it (with different names) to potentially speed up generation, they will register themselves automatically.
+If you are not interested in the playlist view or contact sheet, respectively remove the [`playlist-view.lua`](scripts/playlist-view.lua) or [`contact-sheet.lua`](scripts/contact-sheet.lua) files.
 
-If you want to customize the script (in particular the thumbnail directory), copy `lua-settings/gallery.conf` and modify it to your liking.
+You can make multiple copies (or symlinks) of [`gallery-thumbgen.lua`](scripts/gallery-thumbgen.lua) to speed up thumbnail generation, they will register themselves automatically.
 
-The gallery view is bound to `g` by default but can be rebound in input.conf (with e.g. `t script-message gallery-view`).
+# Usage
 
-# Thumbnail generation
+By default, the playlist-view can be opened with `g` and the contact-sheet with `c`.
 
-By default, thumbnails are generated on-demand, and reused throughout mpv instances.
+In both you can navigate around using arrow keys or the mouse.
 
-Thumbnails can also be generated offline by running this shell snippet (modify according to your needs):
+When you activate an item in the playlist-view, it will switch to that file. In the contact sheet, it will seek to that timestamp.
+
+# Configuration
+
+Both scripts can be configured through the usual `script-opts` mechanism of mpv (see  its [manual](https://mpv.io/manual/master/#files)). The files [`contact_sheet.conf`](script-opts/contact_sheet.conf) and [`playlist_view.conf`](script-opts/playlist_view.conf) in this repository contain a detailed list of options.
+
+Note that both scripts cannot be used at the same time, as they compete for the same resources. If you want to use both, I recommend using the following input.conf bindings:
 ```
-w=192
-h=108
-thumb_dir=~/.mpv_thumbs_dir/
-IFS="
-"
-for i in $(find . -name '*png' -or -name '*jpg'); do
-    hash=$(printf %s $(realpath "$i") | sha256sum | cut -c1-12)
-    # for video, seek forward in the file to generate a better thumbnail
-    ffmpeg -i $i -vf "scale=iw*min(1\,min($w/iw\,$h/ih)):-2,pad=$w:$h:($w-iw)/2:($h-ih)/2:color=0x00000000" -y -f rawvideo -pix_fmt bgra -c:v rawvideo -frames:v 1 -loglevel quiet "$thumb_dir"/"$hash"_"$w"_"$h"
-done
+g script-message contact-sheet-close; script-message playlist-view-toggle
+c script-message playlist-view-close; script-message contact-sheet-toggle
 ```
+To ensure that only one of the scripts is active at a time.
 
-# Flagging
+# Playlist-view flagging
 
-When the gallery is open, you can flag playlist entries (using `SPACE` by default). Flagged entries are indicated with a small frame. Then, when exiting mpv a text file will be created (default `./mpv_flagged`) containing the filenames of the flagged entries, one per line.
+When the playlist-view is open, you can flag playlist entries (using `SPACE` by default). Flagged entries are indicated with a small frame. Then, when exiting mpv a text file will be created (default `./mpv_flagged`) containing the filenames of the flagged entries, one per line.
 
 # Limitations
 
-Ad-hoc thumbnail library (yet another), which is not shared by any other program.
+Yet another ad-hoc thumbnail library, which is not shared with any other program.
 
 Management of the thumbnails is left to the user. In particular, stale thumbnails (whose file has been (re)moved) are not deleted by the script. This can be fixed by deleting thumbnails which have not been accessed since N days with such a snippet
 ```
@@ -52,6 +49,5 @@ min=$((days * 60 * 24)
 # run first without -delete to be sure
 find ~/.mpv_thumbs_dir/ -maxdepth 1 -type f -amin +$min -delete
 ```
-You could even schedule it, with a systemd timer for example.
 
 Thumbnails are raw bgra, which is somewhat wasteful. With the default settings, a thumbnail uses 81KB (around 13k thumbnails in a GB).
