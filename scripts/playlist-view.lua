@@ -6,7 +6,7 @@ local ON_WINDOWS = (package.config:sub(1,1) ~= "/")
 
 local opts = {
     thumbs_dir = ON_WINDOWS and "%APPDATA%\\mpv\\gallery-thumbs-dir" or "~/.mpv_thumbs_dir/",
-    generate_thumbnails_with_mpv = false,
+    generate_thumbnails_with_mpv = ON_WINDOWS,
 
     gallery_position = "{ (ww - gw) / 2, (wh - gh) / 2}",
     gallery_size = "{ 9 * ww / 10, 9 * wh / 10 }",
@@ -212,19 +212,19 @@ do
 
      function setup_ui_handlers()
         for key, func in pairs(bindings_repeat) do
-            mp.add_forced_key_binding(key, "gallery-view-"..key, func, {repeatable = true})
+            mp.add_forced_key_binding(key, "playlist-view-"..key, func, {repeatable = true})
         end
         for key, func in pairs(bindings) do
-            mp.add_forced_key_binding(key, "gallery-view-"..key, func)
+            mp.add_forced_key_binding(key, "playlist-view-"..key, func)
         end
     end
 
     function teardown_ui_handlers()
         for key, _ in pairs(bindings_repeat) do
-            mp.remove_key_binding("gallery-view-"..key)
+            mp.remove_key_binding("playlist-view-"..key)
         end
         for key, _ in pairs(bindings) do
-            mp.remove_key_binding("gallery-view-"..key)
+            mp.remove_key_binding("playlist-view-"..key)
         end
     end
 end
@@ -368,6 +368,7 @@ function playlist_changed(key, playlist)
 end
 
 function start(record_time)
+    if gallery.active then return end
     playlist = mp.get_property_native("playlist")
     if #playlist == 0 then return end
     gallery.items = playlist
@@ -391,6 +392,7 @@ function load_selection()
 end
 
 function stop()
+    if not gallery.active then return end
     if opts.resume_on_stop then
         mp.set_property_bool("pause", false)
     end
@@ -448,8 +450,8 @@ end
 -- workaround for mpv bug #6823
 mp.observe_property("playlist", "native", playlist_changed)
 
-mp.add_key_binding(nil, "gallery-view-open", function() start(true) end)
-mp.add_key_binding(nil, "gallery-view-close", stop)
-mp.add_key_binding(nil, "gallery-view-toggle", toggle)
-mp.add_key_binding(nil, "gallery-view-load-selection", load_selection)
-mp.add_key_binding(nil, "gallery-view-write-flag-file", write_flag_file)
+mp.add_key_binding(nil, "playlist-view-open", function() start(true) end)
+mp.add_key_binding(nil, "playlist-view-close", stop)
+mp.add_key_binding('g', "playlist-view-toggle", toggle)
+mp.add_key_binding(nil, "playlist-view-load-selection", load_selection)
+mp.add_key_binding(nil, "playlist-view-write-flag-file", write_flag_file)

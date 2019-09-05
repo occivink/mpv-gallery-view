@@ -24,14 +24,9 @@ function append_table(lhs, rhs)
     return lhs
 end
 
-function file_exists(path)
-    local f = io.open(path, "r")
-    if f ~= nil then
-        io.close(f)
-        return true
-    else
-        return false
-    end
+local function file_exists(path)
+    local info = utils.file_info(path)
+    return info ~= nil and info.is_file
 end
 
 local video_extensions = { "mkv", "webm", "mp4", "avi", "wmv" }
@@ -217,7 +212,7 @@ function generate_thumbnail(thumbnail_job)
     --"atomically" generate the output to avoid loading half-generated thumbnails (results in crashes)
     if res.status == 0 then
         local info = utils.file_info(tmp_output_path)
-        if not info or info.size == 0 then
+        if not info or not info.is_file or info.size == 0 then
             return false
         end
         if os.rename(tmp_output_path, thumbnail_job.output_path) then

@@ -6,7 +6,7 @@ local ON_WINDOWS = (package.config:sub(1,1) ~= "/")
 
 local opts = {
     thumbs_dir = ON_WINDOWS and "%APPDATA%\\mpv\\gallery-thumbs-dir" or "~/.mpv_thumbs_dir/",
-    generate_thumbnails_with_mpv = false,
+    generate_thumbnails_with_mpv = ON_WINDOWS,
 
     --gallery_position = "{30, 30}",
     --gallery_size = "{tw + 4*sw, wh - 2*gy }",
@@ -34,6 +34,7 @@ local opts = {
     time_distance = "2%",
 
     show_text = "selection",
+    show_millisecond_precision = true,
     text_size = 28,
 
     background_color = "333333",
@@ -133,11 +134,13 @@ gallery.item_to_text = function(index, item)
         else
             str = string.format("%02d:%02d", (item / 60) % 60, item % 60)
         end
-        local dec = tostring(math.floor(item * 1000 % 1000))
-        if dec:len() < 3 then
-            dec = dec .. string.rep("0", 3 - dec:len())
+        if opts.show_millisecond_precision then
+            local dec = tostring(math.floor(item * 1000 % 1000))
+            if dec:len() < 3 then
+                dec = dec .. string.rep("0", 3 - dec:len())
+            end
+            str = str .. "." .. dec
         end
-        str = str .. "." .. dec
         return str
     else
         return ""
@@ -320,6 +323,7 @@ function normalize_path(path)
 end
 
 function start()
+    if gallery.active then return end
     if not mp.get_property_bool("seekable") then
         msg.error("Video is not seekable")
         return
@@ -334,6 +338,7 @@ function start()
     path_hash = string.sub(sha256(normalize_path(path)), 1, 12)
     duration = mp.get_property_number("duration")
     if not duration then return end
+    duration = duration - (1 / mp.get_property_number("container-fps", 30))
     local effective_time_distance
     if string.sub(opts.time_distance, -1) == "%" then
         effective_time_distance = tonumber(string.sub(opts.time_distance, 1, -2)) / 100 * duration
@@ -369,6 +374,7 @@ function seek_to_selection()
 end
 
 function stop()
+    if not gallery.active then return end
     mp.unregister_event(stop)
     if opts.resume_on_stop then
         mp.set_property_bool("pause", false)
@@ -396,5 +402,5 @@ end)
 
 mp.add_key_binding(nil, "contact-sheet-open", start)
 mp.add_key_binding(nil, "contact-sheet-close", stop)
-mp.add_key_binding(nil, "contact-sheet-toggle", toggle)
+mp.add_key_binding('c', "contact-sheet-toggle", toggle)
 mp.add_key_binding(nil, "contact-sheet-seek", seek_to_selection)
