@@ -70,7 +70,6 @@ opts.max_thumbnails = math.min(opts.max_thumbnails, 64)
 local res = utils.file_info(opts.thumbs_dir)
 if not res or not res.is_dir then
     msg.error(string.format("Thumbnail directory \"%s\" does not exist", opts.thumbs_dir))
-    return
 end
 
 local sha256
