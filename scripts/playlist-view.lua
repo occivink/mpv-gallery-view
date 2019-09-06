@@ -366,16 +366,13 @@ function playlist_changed(key, playlist)
     gallery:items_changed()
 end
 
-function start(record_time)
+function start()
     if gallery.active then return end
     playlist = mp.get_property_native("playlist")
     if #playlist == 0 then return end
     gallery.items = playlist
 
     local pos = mp.get_property_number("playlist-pos-1")
-    if record_time then
-        resume[gallery.items[pos].filename] = mp.get_property_number("time-pos")
-    end
     if not gallery:activate(pos or 1) then return end
     if opts.pause_on_start then
         mp.set_property_bool("pause", true)
@@ -385,13 +382,20 @@ function start(record_time)
 end
 
 function load_selection()
-    if mp.get_property_number("playlist-pos-1") == gallery.selection then return end
-    mp.set_property("playlist-pos-1", gallery.selection)
-    local s = resume[gallery.items[gallery.selection].filename]
-    if s then
-        -- FIXME need to wait for the file to be loaded
-        mp.commandv("seek", s, "absolute")
+    local sel = mp.get_property_number("playlist-pos-1")
+    if sel == gallery.selection then return end
+    if sel then
+        resume[gallery.items[sel].filename] = mp.get_property_number("time-pos")
     end
+    mp.set_property("playlist-pos-1", gallery.selection)
+    local time = resume[gallery.items[gallery.selection].filename]
+    if not time then return end
+    local func
+    func = function()
+        mp.commandv("osd-msg-bar", "seek", time, "absolute")
+        mp.unregister_event(func)
+    end
+    mp.register_event("file-loaded", func)
 end
 
 function stop()
@@ -405,7 +409,7 @@ end
 
 function toggle()
     if not gallery.active then
-        start(true)
+        start()
     else
         if opts.load_file_on_toggle_off then load_selection() end
         stop()
@@ -433,7 +437,7 @@ mp.register_event("shutdown", write_flag_file)
 if opts.start_on_file_end then
     mp.observe_property("eof-reached", "bool", function(_, val)
         if val and mp.get_property_number("playlist-count") > 1 then
-            start(false)
+            start()
         end
     end)
 end
@@ -443,7 +447,7 @@ if opts.start_on_mpv_startup then
     autostart = function()
         if mp.get_property_number("playlist-count") == 0 then return end
         if mp.get_property_number("osd-width") <= 0 then return end
-        start(false)
+        start()
         mp.unobserve_property(autostart)
     end
     mp.observe_property("playlist-count", "number", autostart)
@@ -453,7 +457,7 @@ end
 -- workaround for mpv bug #6823
 mp.observe_property("playlist", "native", playlist_changed)
 
-mp.add_key_binding(nil, "playlist-view-open", function() start(true) end)
+mp.add_key_binding(nil, "playlist-view-open", function() start() end)
 mp.add_key_binding(nil, "playlist-view-close", stop)
 mp.add_key_binding('g', "playlist-view-toggle", toggle)
 mp.add_key_binding(nil, "playlist-view-load-selection", load_selection)
