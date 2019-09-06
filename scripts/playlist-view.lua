@@ -20,6 +20,7 @@ local opts = {
     close_on_load_file = true,
     pause_on_start = true,
     resume_on_stop = true,
+    remember_time_position = true,
 
     start_on_mpv_startup = false,
     start_on_file_end = true,
@@ -384,18 +385,22 @@ end
 function load_selection()
     local sel = mp.get_property_number("playlist-pos-1")
     if sel == gallery.selection then return end
-    if sel then
-        resume[gallery.items[sel].filename] = mp.get_property_number("time-pos")
+    if opts.remember_time_position then
+        if sel then
+            resume[gallery.items[sel].filename] = mp.get_property_number("time-pos")
+        end
+        mp.set_property("playlist-pos-1", gallery.selection)
+        local time = resume[gallery.items[gallery.selection].filename]
+        if not time then return end
+        local func
+        func = function()
+            mp.commandv("osd-msg-bar", "seek", time, "absolute")
+            mp.unregister_event(func)
+        end
+        mp.register_event("file-loaded", func)
+    else
+        mp.set_property("playlist-pos-1", gallery.selection)
     end
-    mp.set_property("playlist-pos-1", gallery.selection)
-    local time = resume[gallery.items[gallery.selection].filename]
-    if not time then return end
-    local func
-    func = function()
-        mp.commandv("osd-msg-bar", "seek", time, "absolute")
-        mp.unregister_event(func)
-    end
-    mp.register_event("file-loaded", func)
 end
 
 function stop()
