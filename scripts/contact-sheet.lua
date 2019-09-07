@@ -309,6 +309,9 @@ do
 end
 
 function normalize_path(path)
+    if string.find(path, "://") then
+        return path
+    end
     path = utils.join_path(utils.getcwd(), path)
     if ON_WINDOWS then
         path = string.gsub(path, "\\", "/")
@@ -329,11 +332,6 @@ function start()
     end
 
     path = mp.get_property("path")
-    local info = utils.file_info(path)
-    if not info or not info.is_file then
-        msg.error("Remote videos are not supported")
-        return
-    end
     path_hash = string.sub(sha256(normalize_path(path)), 1, 12)
     duration = mp.get_property_number("duration")
     if not duration then return end
