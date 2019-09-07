@@ -290,8 +290,9 @@ function gallery_mt.refresh_scrollbar(gallery)
                 after / before * (1 - p) / (1 + after / before)
         end
     end
-    local y1 = g.gallery_position[2] + g.effective_spacing[2] + before * (g.gallery_size[2] - 2 * g.effective_spacing[2])
-    local y2 = g.gallery_position[2] + g.gallery_size[2] - (g.effective_spacing[2] + after * (g.gallery_size[2] - 2 * g.effective_spacing[2]))
+    local dist_from_edge = g.gallery_size[2] * 0.015
+    local y1 = g.gallery_position[2] + dist_from_edge + before * (g.gallery_size[2] - 2 * dist_from_edge)
+    local y2 = g.gallery_position[2] + g.gallery_size[2] - (dist_from_edge + after * (g.gallery_size[2] - 2 * dist_from_edge))
     local x1, x2
     if gallery.config.scrollbar_left_side then
         x1 = g.gallery_position[1] + g.effective_spacing[1] / 2 - 2
