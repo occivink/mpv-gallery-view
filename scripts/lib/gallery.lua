@@ -341,7 +341,7 @@ function gallery_mt.refresh_selection(gallery)
             local an = 5
             local x, y = gallery:view_index_position(index - v.first)
             x = x + g.thumbnail_size[1] / 2
-            y = y + g.thumbnail_size[2] + g.effective_spacing[2] / 2
+            y = y + g.thumbnail_size[2] + gallery.config.text_size * 0.75
             if gallery.config.align_text then
                 local col = (index - v.first) % g.columns
                 if g.columns > 1 then
