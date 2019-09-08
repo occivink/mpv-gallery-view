@@ -20,6 +20,7 @@ local opts = {
     close_on_load_file = true,
     pause_on_start = true,
     resume_on_stop = true,
+    follow_playlist_position = true,
     remember_time_position = true,
 
     start_on_mpv_startup = false,
@@ -367,6 +368,10 @@ function playlist_changed(key, playlist)
     gallery:items_changed()
 end
 
+function select(_, val)
+    gallery.pending.selection = val
+end
+
 function start()
     if gallery.active then return end
     playlist = mp.get_property_native("playlist")
@@ -377,6 +382,9 @@ function start()
     if not gallery:activate(pos or 1) then return end
     if opts.pause_on_start then
         mp.set_property_bool("pause", true)
+    end
+    if opts.follow_playlist_position then
+        mp.observe_property("playlist-pos-1", "native", select)
     end
 
     setup_ui_handlers()
@@ -410,6 +418,9 @@ function stop()
     if not gallery.active then return end
     if opts.resume_on_stop then
         mp.set_property_bool("pause", false)
+    end
+    if opts.follow_playlist_position then
+        mp.unobserve_property(select)
     end
     gallery:deactivate()
     teardown_ui_handlers()
