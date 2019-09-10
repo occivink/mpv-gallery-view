@@ -5,7 +5,7 @@ Playlist view and [contact sheet](https://en.wikipedia.org/wiki/Contact_print) s
 # Important
 
 * **Make sure that the thumbnail directory exists for thumbnail generation to work.**
-* **The default thumbnail directory is probably not appropriate for your system.** See Installation for instructions on how to change it.
+* **The default thumbnail directory is probably not appropriate for your system.** `~/.mpv_thumbs_dir/` on unix, `%APPDATA%\mpv\gallery-thumbs-dir` on windows. See Installation for instructions on how to change it.
 
 # Installation
 
