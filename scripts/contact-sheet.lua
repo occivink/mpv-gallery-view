@@ -29,7 +29,7 @@ local opts = {
     seek_on_toggle_off = false,
     close_on_seek = true,
     pause_on_start = true,
-    resume_on_stop = true,
+    resume_on_stop = "only-if-did-pause",
 
     time_distance = "2%",
 
@@ -93,6 +93,7 @@ local gallery = gallery_new()
 local path = ""
 local path_hash = ""
 local duration = 0
+local did_pause = false
 
 gallery.config.accurate = true
 gallery.config.generate_thumbnails_with_mpv = opts.generate_thumbnails_with_mpv
@@ -356,8 +357,10 @@ function start()
     gallery.items = times
 
     if not gallery:activate(selection) then return end
-    if opts.pause_on_start then
+    did_pause = false
+    if opts.pause_on_start and not mp.get_property_bool("pause", false) then
         mp.set_property_bool("pause", true)
+        did_pause = true
     end
     mp.register_event("end-file", stop)
 
@@ -373,7 +376,7 @@ end
 function stop()
     if not gallery.active then return end
     mp.unregister_event(stop)
-    if opts.resume_on_stop then
+    if opts.resume_on_stop == "yes" or (opts.resume_on_stop == "only-if-did-pause" and did_pause) then
         mp.set_property_bool("pause", false)
     end
     gallery:deactivate()

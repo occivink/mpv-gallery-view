@@ -94,6 +94,7 @@ local gallery = gallery_new()
 
 local flags = {}
 local resume = {}
+local did_pause = false
 local hash_cache = {}
 
 gallery.config.accurate = false
