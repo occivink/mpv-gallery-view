@@ -368,7 +368,7 @@ function playlist_changed(key, playlist)
     gallery:items_changed()
 end
 
-function select(_, val)
+function follow_selection(_, val)
     gallery.pending.selection = val
 end
 
@@ -384,7 +384,7 @@ function start()
         mp.set_property_bool("pause", true)
     end
     if opts.follow_playlist_position then
-        mp.observe_property("playlist-pos-1", "native", select)
+        mp.observe_property("playlist-pos-1", "native", follow_selection)
     end
 
     setup_ui_handlers()
@@ -420,7 +420,7 @@ function stop()
         mp.set_property_bool("pause", false)
     end
     if opts.follow_playlist_position then
-        mp.unobserve_property(select)
+        mp.unobserve_property(follow_selection)
     end
     gallery:deactivate()
     teardown_ui_handlers()
