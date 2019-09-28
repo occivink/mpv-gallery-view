@@ -395,7 +395,7 @@ function start()
 end
 
 function load_selection()
-    local sel = mp.get_property_number("playlist-pos-1")
+    local sel = mp.get_property_number("playlist-pos-1", -1)
     if sel == gallery.selection then return end
     if opts.remember_time_position then
         if sel then
