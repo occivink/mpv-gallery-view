@@ -133,6 +133,10 @@ function thumbnail_command(input_path, width, height, take_thumbnail_at, output_
         input_path = ytdl_thumbnail_url(input_path)
     end
 
+    if input_path:find("archive://") == 1 then
+        with_mpv = true
+    end
+
 
     if not with_mpv then
         out = { "ffmpeg" }
