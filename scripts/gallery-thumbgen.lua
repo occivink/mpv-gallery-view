@@ -128,12 +128,12 @@ function thumbnail_command(input_path, width, height, take_thumbnail_at, output_
     local add = function(table) out = append_table(out, table) end
 
 
-    if input_path:find("https?://") == 1 and not is_blacklisted(input_path) then
+    if input_path:find("^https?://") and not is_blacklisted(input_path) then
         -- returns the original input_path on failure
         input_path = ytdl_thumbnail_url(input_path)
     end
 
-    if input_path:find("archive://") == 1 then
+    if input_path:find("^archive://") or input_path.find("^edl://") then
         with_mpv = true
     end
 
