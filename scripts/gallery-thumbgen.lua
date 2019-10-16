@@ -133,7 +133,7 @@ function thumbnail_command(input_path, width, height, take_thumbnail_at, output_
         input_path = ytdl_thumbnail_url(input_path)
     end
 
-    if input_path:find("^archive://") or input_path.find("^edl://") then
+    if input_path:find("^archive://") or input_path:find("^edl://") then
         with_mpv = true
     end
 
