@@ -45,6 +45,9 @@ local opts = {
     selected_border_size = 6,
     placeholder_color = "222222",
 
+    command_on_open = "",
+    command_on_close = "",
+
     mouse_support = true,
     UP        = "UP",
     DOWN      = "DOWN",
@@ -357,6 +360,9 @@ function start()
     gallery.items = times
 
     if not gallery:activate(selection) then return end
+    if opts.command_on_open ~= "" then
+        mp.command(opts.command_on_open)
+    end
     did_pause = false
     if opts.pause_on_start and not mp.get_property_bool("pause", false) then
         mp.set_property_bool("pause", true)
@@ -378,6 +384,9 @@ function stop()
     mp.unregister_event(stop)
     if opts.resume_on_stop == "yes" or (opts.resume_on_stop == "only-if-did-pause" and did_pause) then
         mp.set_property_bool("pause", false)
+    end
+    if opts.command_on_close ~= "" then
+        mp.command(opts.command_on_close)
     end
     gallery:deactivate()
     teardown_ui_handlers()

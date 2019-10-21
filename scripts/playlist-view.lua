@@ -43,6 +43,9 @@ local opts = {
     selected_flagged_border_color = "BAFFCA",
     placeholder_color = "222222",
 
+    command_on_open = "",
+    command_on_close = "",
+
     flagged_file_path = "./mpv_gallery_flagged",
 
     mouse_support = true,
@@ -387,6 +390,9 @@ function start()
         mp.set_property_bool("pause", true)
         did_pause = true
     end
+    if opts.command_on_open ~= "" then
+        mp.command(opts.command_on_open)
+    end
     if opts.follow_playlist_position then
         mp.observe_property("playlist-pos-1", "native", follow_selection)
     end
@@ -422,6 +428,9 @@ function stop()
     if not gallery.active then return end
     if opts.resume_on_stop == "yes" or (opts.resume_on_stop == "only-if-did-pause" and did_pause) then
         mp.set_property_bool("pause", false)
+    end
+    if opts.command_on_close ~= "" then
+        mp.command(opts.command_on_close)
     end
     if opts.follow_playlist_position then
         mp.unobserve_property(follow_selection)
