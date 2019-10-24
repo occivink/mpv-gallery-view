@@ -5,7 +5,7 @@ Playlist view and [contact sheet](https://en.wikipedia.org/wiki/Contact_print) s
 # Important
 
 * **Make sure that the thumbnail directory exists for thumbnail generation to work.**
-* **The default thumbnail directory is probably not appropriate for your system.** `~/.mpv_thumbs_dir/` on Unix, `%APPDATA%\mpv\gallery-thumbs-dir` on Windows. See Installation for instructions on how to change it.
+* **The default thumbnail directory is probably not appropriate for your system.** `~/.mpv_thumbs_dir/` on Unix, `%APPDATA%\mpv\gallery-thumbs-dir` on Windows. See Configuration for instructions on how to change it.
 
 # Installation
 
@@ -25,7 +25,7 @@ When you activate an item in the playlist-view, it will switch to that file. In 
 
 # Configuration
 
-Both scripts can be configured through the usual `script-opts` mechanism of mpv (see  its [manual](https://mpv.io/manual/master/#files)). The files [`contact_sheet.conf`](script-opts/contact_sheet.conf) and [`playlist_view.conf`](script-opts/playlist_view.conf) in this repository contain a detailed list of options.
+Both scripts can be configured through the usual `script-opts` mechanism of mpv (see its [manual](https://mpv.io/manual/master/#files)). The files [`contact_sheet.conf`](script-opts/contact_sheet.conf) and [`playlist_view.conf`](script-opts/playlist_view.conf) in this repository contain a detailed list of options.
 
 Note that both scripts cannot be used at the same time, as they compete for the same resources. If you want to use both, I recommend using the following input.conf bindings:
 ```
@@ -45,7 +45,7 @@ Yet another ad-hoc thumbnail library, which is not shared with any other program
 Management of the thumbnails is left to the user. In particular, stale thumbnails (whose file has been (re)moved) are not deleted by the script. This can be fixed by deleting thumbnails which have not been accessed since N days with such a snippet
 ```
 days=7
-min=$((days * 60 * 24)
+min=$((days * 60 * 24))
 # run first without -delete to be sure
 find ~/.mpv_thumbs_dir/ -maxdepth 1 -type f -amin +$min -delete
 ```
