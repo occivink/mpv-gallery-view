@@ -36,7 +36,7 @@ To ensure that only one of the scripts is active at a time.
 
 # Playlist-view flagging
 
-When the playlist-view is open, you can flag playlist entries (using `SPACE` by default). Flagged entries are indicated with a small frame. Then, when exiting mpv a text file will be created (default `./mpv_flagged`) containing the filenames of the flagged entries, one per line.
+When the playlist-view is open, you can flag playlist entries (using `SPACE` by default). Flagged entries are indicated with a small frame. Then, when exiting mpv a text file will be created (default `./mpv_gallery_flagged`) containing the filenames of the flagged entries, one per line.
 
 # Limitations
 
