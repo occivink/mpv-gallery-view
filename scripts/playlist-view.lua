@@ -1,6 +1,13 @@
 local utils = require 'mp.utils'
 local msg = require 'mp.msg'
-local gallery = require 'lib/gallery'
+
+local lib = mp.find_config_file('scripts/lib')
+if not lib then
+    return
+end
+-- lib can be nil if the folder does not exist or we're in --no-config mode
+package.path = package.path .. ';' .. lib .. '/?.lua;'
+local gallery = require 'gallery'
 
 local ON_WINDOWS = (package.config:sub(1,1) ~= "/")
 
