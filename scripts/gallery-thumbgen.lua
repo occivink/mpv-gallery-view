@@ -180,17 +180,17 @@ function thumbnail_command(input_path, width, height, take_thumbnail_at, output_
             if not accurate then
                 add({ "--hr-seek=no"})
             end
-            add({ "--start", take_thumbnail_at })
+            add({ "--start="..take_thumbnail_at })
         end
         add({
             "--no-config", "--msg-level=all=no",
-            "--vf", "lavfi=[" .. vf .. ",format=bgra]",
-            "--audio", "no",
-            "--sub", "no",
-            "--frames", "1",
-            "--image-display-duration", "0",
-            "--of", "rawvideo", "--ovc", "rawvideo",
-            "--o", output_path
+            "--vf=lavfi=[" .. vf .. ",format=bgra]",
+            "--audio=no",
+            "--sub=no",
+            "--frames=1",
+            "--image-display-duration=0",
+            "--of=rawvideo", "--ovc=rawvideo",
+            "--o="..output_path
         })
     end
     return out
