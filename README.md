@@ -34,6 +34,11 @@ c script-message playlist-view-close; script-message contact-sheet-toggle
 ```
 To ensure that only one of the scripts is active at a time.
 
+You can change thumbnail sizes dynamically from input.conf with the following binding format:
+```
+[key] script-message playlist-change-size "(ww * wh <= 1921 * 1081) and {603, 339} or {952, 536}"
+```
+
 # Playlist-view flagging
 
 When the playlist-view is open, you can flag playlist entries (using `SPACE` by default). Flagged entries are indicated with a small frame. Then, when exiting mpv a text file will be created (default `./mpv_gallery_flagged`) containing the filenames of the flagged entries, one per line.
