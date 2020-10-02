@@ -502,7 +502,6 @@ end
 
 function change_thumb_size(thumb_size)
     opts.thumbnail_size = thumb_size
-    msg.info('Yeet')
     set_overlays()
     set_geometries()
     if gallery.active then
