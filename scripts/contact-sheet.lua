@@ -1,7 +1,7 @@
 local utils = require 'mp.utils'
 local msg = require 'mp.msg'
 
-local lib = mp.find_config_file('scripts/lib')
+local lib = mp.find_config_file('scripts/lib.disable')
 if not lib then
     return
 end
