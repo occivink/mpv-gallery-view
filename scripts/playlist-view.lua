@@ -205,7 +205,7 @@ do
             else
                 flags[name] = nil
             end
-            -- TODO refresh ass
+            gallery:ass_show(true, false, false, false)
         end
     if opts.mouse_support then
         bindings["MBTN_LEFT"]  = function()
