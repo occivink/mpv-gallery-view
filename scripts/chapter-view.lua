@@ -123,13 +123,13 @@ end
 gallery.item_to_overlay_path = function(index, item)
     local thumb_filename = string.format("%s_%u_%d_%d",
         path_hash,
-        item.time + effective_time_offset * 100,
+        math.min(item.time + effective_time_offset, duration) * 100,
         gallery.geometry.thumbnail_size[1],
         gallery.geometry.thumbnail_size[2])
     return utils.join_path(opts.thumbs_dir, thumb_filename)
 end
 gallery.item_to_thumbnail_params = function(index, item)
-    return path, item.time + effective_time_offset
+    return path, math.min(item.time + effective_time_offset, duration)
 end
 gallery.item_to_border = function(index, item)
     if index == gallery.selection then
