@@ -121,15 +121,17 @@ gallery.too_small = function()
     stop()
 end
 gallery.item_to_overlay_path = function(index, item)
+    local time = item.time + effective_time_offset
     local thumb_filename = string.format("%s_%u_%d_%d",
         path_hash,
-        math.min(item.time + effective_time_offset, duration) * 100,
+        (time >= duration and item.time or time) * 100,
         gallery.geometry.thumbnail_size[1],
         gallery.geometry.thumbnail_size[2])
     return utils.join_path(opts.thumbs_dir, thumb_filename)
 end
 gallery.item_to_thumbnail_params = function(index, item)
-    return path, math.min(item.time + effective_time_offset, duration)
+    local time = item.time + effective_time_offset
+    return path, time >= duration and item.time or time
 end
 gallery.item_to_border = function(index, item)
     if index == gallery.selection then
