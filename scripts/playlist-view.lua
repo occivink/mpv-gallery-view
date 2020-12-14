@@ -413,7 +413,7 @@ function load_selection()
     if opts.remember_time_position then
         if sel then
             local time = mp.get_property_number("time-pos")
-            if time > 1 then
+            if time and time > 1 then
                 resume[gallery.items[sel].filename] = time
             end
         end
