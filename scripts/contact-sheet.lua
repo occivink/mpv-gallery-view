@@ -145,11 +145,7 @@ gallery.item_to_text = function(index, item)
             str = string.format("%02d:%02d", (item / 60) % 60, item % 60)
         end
         if opts.show_millisecond_precision then
-            local dec = tostring(math.floor(item * 1000 % 1000))
-            if dec:len() < 3 then
-                dec = dec .. string.rep("0", 3 - dec:len())
-            end
-            str = str .. "." .. dec
+            str = string.format("%s.%03d", str, math.floor(item * 1000 % 1000))
         end
         return str
     else
