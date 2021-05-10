@@ -48,8 +48,11 @@ local opts = {
     background_opacity = "33",
     normal_border_color = "BBBBBB",
     normal_border_size = 1,
-    selected_border_color = "DDDDDD",
+    selected_border_color = "E5E4E5",
     selected_border_size = 6,
+    highlight_previous = true,
+    previous_border_color = "EBC5A7",
+    previous_border_size = 4,
     placeholder_color = "222222",
 
     command_on_open = "",
@@ -104,6 +107,7 @@ local path = ""
 local path_hash = ""
 local duration = 0
 local did_pause = false
+local time_pos = 0
 
 gallery.config.accurate = true
 gallery.config.generate_thumbnails_with_mpv = opts.generate_thumbnails_with_mpv
@@ -129,15 +133,39 @@ end
 gallery.item_to_thumbnail_params = function(index, item)
     return path, item
 end
+function blend_colors(colors)
+    if #colors == 1 then return colors[1] end
+    local comp1 = 0
+    local comp2 = 0
+    local comp3 = 0
+    for _, val in ipairs(colors) do
+        comp1 = comp1 + tonumber(string.sub(val, 1, 2), 16)
+        comp2 = comp2 + tonumber(string.sub(val, 3, 4), 16)
+        comp3 = comp3 + tonumber(string.sub(val, 5, 6), 16)
+    end
+    return string.format("%02x%02x%02x", comp1 / #colors, comp2 / #colors, comp3 / #colors)
+end
 gallery.item_to_border = function(index, item)
+    local size = 0
+    colors = {}
     if index == gallery.selection then
-        return opts.selected_border_size, opts.selected_border_color
-    else
+        colors[#colors + 1] = opts.selected_border_color
+        size = math.max(size, opts.selected_border_size)
+    end
+    if opts.highlight_previous and time_pos and item <= (time_pos + 0.01) and
+        (index == #gallery.items or gallery.items[index + 1] > (time_pos + 0.01))
+    then
+        colors[#colors + 1] = opts.previous_border_color
+        size = math.max(size, opts.previous_border_size)
+    end
+    if #colors == 0 then
         return opts.normal_border_size, opts.normal_border_color
+    else
+        return size, blend_colors(colors)
     end
 end
 gallery.item_to_text = function(index, item)
-    if opts.show_text == "everywhere" or opts.show_text == "selection" and index == gallery.selection then
+    if opts.show_text == "everywhere" or (opts.show_text == "selection" and index == gallery.selection) then
         local str
         if duration > 3600 then
             str = string.format("%d:%02d:%02d", item / 3600, (item / 60) % 60, item % 60)
@@ -331,6 +359,13 @@ function normalize_path(path)
     return path
 end
 
+function time_pos_changed(_, val)
+    time_pos = val
+    if opts.highlight_previous then
+        gallery:ass_show(true, false, false, false)
+    end
+end
+
 function start()
     if gallery.active then return end
     if not mp.get_property_bool("seekable") then
@@ -352,9 +387,12 @@ function start()
     local time = 0
     local times = {}
     local selection = 0
-    local time_pos = mp.get_property_number("time-pos")
+    time_pos = mp.get_property_number("time-pos")
+    mp.observe_property("time-pos", "number", time_pos_changed)
     while time < duration do
-        if time < time_pos + 0.1 then
+        -- when seeking, it might be that mpv actually picks a timestamp that is _before_ what we ask
+        -- so we add 10ms to counter this off-by-one
+        if time < time_pos + 0.01 then
             selection = selection + 1
         end
         times[#times + 1] = time
@@ -391,6 +429,7 @@ function stop()
     if opts.command_on_close ~= "" then
         mp.command(opts.command_on_close)
     end
+    mp.unobserve_property(time_pos_changed)
     gallery:deactivate()
     teardown_ui_handlers()
 end
