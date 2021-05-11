@@ -430,6 +430,7 @@ function start()
         mp.command(opts.command_on_open)
     end
     mp.observe_property("playlist-pos-1", "native", playlist_pos_changed)
+    mp.observe_property("playlist", "native", playlist_changed)
 
     setup_ui_handlers()
 end
@@ -467,6 +468,7 @@ function stop()
         mp.command(opts.command_on_close)
     end
     mp.unobserve_property(playlist_pos_changed)
+    mp.unobserve_property(playlist_changed)
     gallery:deactivate()
     teardown_ui_handlers()
 end
@@ -517,9 +519,6 @@ if opts.start_on_mpv_startup then
     mp.observe_property("playlist-count", "number", autostart)
     mp.observe_property("osd-width", "number", autostart)
 end
-
--- workaround for mpv bug #6823
-mp.observe_property("playlist", "native", playlist_changed)
 
 mp.add_key_binding(nil, "playlist-view-open", function() start() end)
 mp.add_key_binding(nil, "playlist-view-close", stop)
