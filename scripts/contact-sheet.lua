@@ -376,8 +376,10 @@ function start()
     path = mp.get_property("path")
     path_hash = string.sub(sha256(normalize_path(path)), 1, 12)
     duration = mp.get_property_number("duration")
-    if not duration then return end
+    if not duration or duration == 0 then return end
     duration = duration - (1 / mp.get_property_number("container-fps", 30))
+    if duration == 0 then return end
+
     local effective_time_distance
     if string.sub(opts.time_distance, -1) == "%" then
         effective_time_distance = tonumber(string.sub(opts.time_distance, 1, -2)) / 100 * duration
