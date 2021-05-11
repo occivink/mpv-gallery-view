@@ -40,6 +40,10 @@ local opts = {
 
     time_distance = "2%",
 
+    chapter_mode = false,
+    chapter_mode_time_offset = 2,
+    chapter_mode_fallback_to_time_steps = true,
+
     show_text = "selection",
     show_millisecond_precision = true,
     text_size = 28,
@@ -108,6 +112,7 @@ local path_hash = ""
 local duration = 0
 local did_pause = false
 local time_pos = 0
+local with_chapters = false
 
 gallery.config.accurate = true
 gallery.config.generate_thumbnails_with_mpv = opts.generate_thumbnails_with_mpv
@@ -119,19 +124,30 @@ gallery.config.background_opacity = opts.background_opacity
 gallery.config.max_thumbnails = opts.max_thumbnails
 gallery.config.text_size = opts.text_size
 
+function item_to_time(item, with_offset)
+    if not with_chapters then return item end
+    if not with_offset then return item.time end
+    local time_with_offset = item.time + opts.chapter_mode_time_offset
+    if time_with_offset < duration then
+        return time_with_offset
+    else
+        return item.time;
+    end
+end
+
 gallery.too_small = function()
     stop()
 end
 gallery.item_to_overlay_path = function(index, item)
     local thumb_filename = string.format("%s_%u_%d_%d",
         path_hash,
-        item * 100,
+        item_to_time(item, true) * 100,
         gallery.geometry.thumbnail_size[1],
         gallery.geometry.thumbnail_size[2])
     return utils.join_path(opts.thumbs_dir, thumb_filename)
 end
 gallery.item_to_thumbnail_params = function(index, item)
-    return path, item
+    return path, item_to_time(item, true)
 end
 function blend_colors(colors)
     if #colors == 1 then return colors[1] end
@@ -152,8 +168,8 @@ gallery.item_to_border = function(index, item)
         colors[#colors + 1] = opts.selected_border_color
         size = math.max(size, opts.selected_border_size)
     end
-    if opts.highlight_previous and time_pos and item <= (time_pos + 0.01) and
-        (index == #gallery.items or gallery.items[index + 1] > (time_pos + 0.01))
+    if opts.highlight_previous and time_pos and item_to_time(item, false) <= (time_pos + 0.01) and
+        (index == #gallery.items or item_to_time(gallery.items[index + 1], false) > (time_pos + 0.01))
     then
         colors[#colors + 1] = opts.previous_border_color
         size = math.max(size, opts.previous_border_size)
@@ -166,16 +182,21 @@ gallery.item_to_border = function(index, item)
 end
 gallery.item_to_text = function(index, item)
     if opts.show_text == "everywhere" or (opts.show_text == "selection" and index == gallery.selection) then
-        local str
-        if duration > 3600 then
-            str = string.format("%d:%02d:%02d", item / 3600, (item / 60) % 60, item % 60)
+        if with_chapters and item.title ~= "" and item.title ~= "(unnamed)" then
+            return item.title
         else
-            str = string.format("%02d:%02d", (item / 60) % 60, item % 60)
+            local str
+            local time = item_to_time(item, false)
+            if duration > 3600 then
+                str = string.format("%d:%02d:%02d", time / 3600, (time / 60) % 60, time % 60)
+            else
+                str = string.format("%02d:%02d", (time / 60) % 60, time % 60)
+            end
+            if opts.show_millisecond_precision then
+                str = string.format("%s.%03d", str, math.floor(time * 1000 % 1000))
+            end
+            return str
         end
-        if opts.show_millisecond_precision then
-            str = string.format("%s.%03d", str, math.floor(item * 1000 % 1000))
-        end
-        return str
     else
         return ""
     end
@@ -380,27 +401,43 @@ function start()
     duration = duration - (1 / mp.get_property_number("container-fps", 30))
     if duration == 0 then return end
 
-    local effective_time_distance
-    if string.sub(opts.time_distance, -1) == "%" then
-        effective_time_distance = tonumber(string.sub(opts.time_distance, 1, -2)) / 100 * duration
-    else
-        effective_time_distance = tonumber(opts.time_distance)
-    end
-    local time = 0
-    local times = {}
-    local selection = 0
-    time_pos = mp.get_property_number("time-pos")
-    mp.observe_property("time-pos", "number", time_pos_changed)
-    while time < duration do
-        -- when seeking, it might be that mpv actually picks a timestamp that is _before_ what we ask
-        -- so we add 10ms to counter this off-by-one
-        if time < time_pos + 0.01 then
-            selection = selection + 1
+    with_chapters = false
+    if opts.chapter_mode then
+        local chap_list = mp.get_property_native("chapter-list")
+        if #chap_list > 0 then
+            with_chapters = true
+            gallery.items = chap_list
+        elseif opts.chapter_mode_fallback_to_time_steps then
+            -- empty
+        else
+            return
         end
-        times[#times + 1] = time
-        time = time + effective_time_distance
     end
-    gallery.items = times
+
+    if not with_chapters then
+        local effective_time_distance
+        if string.sub(opts.time_distance, -1) == "%" then
+            effective_time_distance = tonumber(string.sub(opts.time_distance, 1, -2)) / 100 * duration
+        else
+            effective_time_distance = tonumber(opts.time_distance)
+        end
+        local time = 0
+        local times = {}
+        while time < duration do
+            times[#times + 1] = time
+            time = time + effective_time_distance
+        end
+        gallery.items = times
+    end
+
+    time_pos = mp.get_property_number("time-pos")
+    local selection = 0
+    for index, value in ipairs(gallery.items) do
+        if item_to_time(value, false) > time_pos + 0.01 then
+            selection = math.max(index - 1, 1)
+            break
+        end
+    end
 
     if not gallery:activate(selection) then return end
     if opts.command_on_open ~= "" then
@@ -411,6 +448,7 @@ function start()
         mp.set_property_bool("pause", true)
         did_pause = true
     end
+    mp.observe_property("time-pos", "number", time_pos_changed)
     mp.register_event("end-file", stop)
 
     setup_ui_handlers()
@@ -418,7 +456,7 @@ end
 
 function seek_to_selection()
     if not gallery.active then return end
-    local time = gallery.items[gallery.selection]
+    local time = item_to_time(gallery.items[gallery.selection], false)
     if not time then return end
     mp.commandv("seek", time, "absolute")
 end
