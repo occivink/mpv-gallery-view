@@ -417,6 +417,7 @@ function start()
 end
 
 function seek_to_selection()
+    if not gallery.active then return end
     local time = gallery.items[gallery.selection]
     if not time then return end
     mp.commandv("seek", time, "absolute")
