@@ -105,14 +105,18 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 do local b,c,d,e,f;if bit32 then b,c,d,e,f=bit32.band,bit32.rrotate,bit32.bxor,bit32.rshift,bit32.bnot else f=function(g)g=math.floor(tonumber(g))%0x100000000;return(-g-1)%0x100000000 end;local h={[0]={[0]=0,0,0,0},[1]={[0]=0,1,0,1},[2]={[0]=0,0,2,2},[3]={[0]=0,1,2,3}}local i={[0]={[0]=0,1,2,3},[1]={[0]=1,0,3,2},[2]={[0]=2,3,0,1},[3]={[0]=3,2,1,0}}local function j(k,l,m,n,o)for p=1,m do l[p]=math.floor(tonumber(l[p]))%0x100000000 end;local q=1;local r=0;for s=0,31,2 do local t=n;for p=1,m do t=o[t][l[p]%4]l[p]=math.floor(l[p]/4)end;r=r+t*q;q=q*4 end;return r end;b=function(...)return j('band',{...},select('#',...),3,h)end;d=function(...)return j('bxor',{...},select('#',...),0,i)end;e=function(g,u)g=math.floor(tonumber(g))%0x100000000;u=math.floor(tonumber(u))u=math.min(math.max(-32,u),32)return math.floor(g/2^u)%0x100000000 end;c=function(g,u)g=math.floor(tonumber(g))%0x100000000;u=-math.floor(tonumber(u))%32;local g=g*2^u;return g%0x100000000+math.floor(g/0x100000000)end end;local v={0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2}local function w(n)return string.gsub(n,".",function(t)return string.format("%02x",string.byte(t))end)end;local function x(y,z)local n=""for p=1,z do local A=y%256;n=string.char(A)..n;y=(y-A)/256 end;return n end;local function B(n,p)local z=0;for p=p,p+3 do z=z*256+string.byte(n,p)end;return z end;local function C(D,E)local F=-(E+1+8)%64;E=x(8*E,8)D=D.."\128"..string.rep("\0",F)..E;return D end;local function G(H)H[1]=0x6a09e667;H[2]=0xbb67ae85;H[3]=0x3c6ef372;H[4]=0xa54ff53a;H[5]=0x510e527f;H[6]=0x9b05688c;H[7]=0x1f83d9ab;H[8]=0x5be0cd19;return H end;local function I(D,p,H)local J={}for K=1,16 do J[K]=B(D,p+(K-1)*4)end;for K=17,64 do local L=J[K-15]local M=d(c(L,7),c(L,18),e(L,3))L=J[K-2]local N=d(c(L,17),c(L,19),e(L,10))J[K]=J[K-16]+M+J[K-7]+N end;local O,s,t,P,Q,R,S,T=H[1],H[2],H[3],H[4],H[5],H[6],H[7],H[8]for p=1,64 do local M=d(c(O,2),c(O,13),c(O,22))local U=d(b(O,s),b(O,t),b(s,t))local V=M+U;local N=d(c(Q,6),c(Q,11),c(Q,25))local W=d(b(Q,R),b(f(Q),S))local X=T+N+W+v[p]+J[p]T=S;S=R;R=Q;Q=P+X;P=t;t=s;s=O;O=X+V end;H[1]=b(H[1]+O)H[2]=b(H[2]+s)H[3]=b(H[3]+t)H[4]=b(H[4]+P)H[5]=b(H[5]+Q)H[6]=b(H[6]+R)H[7]=b(H[7]+S)H[8]=b(H[8]+T)end;local function Y(H)return w(x(H[1],4)..x(H[2],4)..x(H[3],4)..x(H[4],4)..x(H[5],4)..x(H[6],4)..x(H[7],4)..x(H[8],4))end;local Z={}sha256=function(D)D=C(D,#D)local H=G(Z)for p=1,#D,64 do I(D,p,H)end;return Y(H)end end
 -- end of sha code
 
-local gallery = gallery_new()
-
 local path = ""
 local path_hash = ""
 local duration = 0
 local did_pause = false
 local time_pos = 0
 local with_chapters = false
+
+local ass_changed = false
+local ass = ""
+local geometry_changed = false
+local pending_selection = nil
+local gallery = gallery_new()
 
 gallery.config.accurate = true
 gallery.config.generate_thumbnails_with_mpv = opts.generate_thumbnails_with_mpv
@@ -124,6 +128,10 @@ gallery.config.background_opacity = opts.background_opacity
 gallery.config.max_thumbnails = opts.max_thumbnails
 gallery.config.text_size = opts.text_size
 
+gallery.ass_show = function(new_ass)
+    ass_changed = true
+    ass = new_ass
+end
 function item_to_time(item, with_offset)
     if not with_chapters then return item end
     if not with_offset then return item.time end
@@ -204,12 +212,12 @@ end
 
 do
     local function increment_func(increment, clamp)
-        local new = (gallery.pending.selection or gallery.selection) + increment
+        local new = (pending_selection or gallery.selection) + increment
         if new <= 0 or new > #gallery.items then
             if not clamp then return end
             new = math.max(1, math.min(new, #gallery.items))
         end
-        gallery.pending.selection = new
+        pending_selection = new
     end
 
     local bindings_repeat = {}
@@ -219,11 +227,11 @@ do
         bindings_repeat[opts.RIGHT]     = function() increment_func(  1, false) end
         bindings_repeat[opts.PAGE_UP]   = function() increment_func(- gallery.geometry.columns * gallery.geometry.rows, true) end
         bindings_repeat[opts.PAGE_DOWN] = function() increment_func(  gallery.geometry.columns * gallery.geometry.rows, true) end
-        bindings_repeat[opts.RANDOM]    = function() gallery.pending.selection = math.random(1, #gallery.items) end
+        bindings_repeat[opts.RANDOM]    = function() pending_selection = math.random(1, #gallery.items) end
 
     local bindings = {}
-        bindings[opts.FIRST]  = function() gallery.pending.selection = 1 end
-        bindings[opts.LAST]   = function() gallery.pending.selection = #gallery.items end
+        bindings[opts.FIRST]  = function() pending_selection = 1 end
+        bindings[opts.LAST]   = function() pending_selection = #gallery.items end
         bindings[opts.ACCEPT] = function()
             seek_to_selection()
             if opts.close_on_seek then stop() end
@@ -237,7 +245,7 @@ do
                 seek_to_selection()
                 if opts.close_on_seek then stop() end
             else
-                gallery.pending.selection = index
+                pending_selection = index
             end
         end
         bindings["WHEEL_UP"]   = function() increment_func(- gallery.geometry.columns, false) end
@@ -340,29 +348,39 @@ do
         end
     end
 
-    local show_text = (opts.show_text == "selection" or opts.show_text == "everywhere")
-
-    gallery.set_geometry_props = function()
-        local g = gallery.geometry
-        g.window[1], g.window[2] = mp.get_osd_size()
+    function compute_geometry()
+        local ww, wh = mp.get_osd_size()
+        local new_geom = {
+             gallery_position = {},
+             gallery_size = {},
+             min_spacing = {},
+             thumbnail_size = {},
+         }
+        local show_text = (opts.show_text == "selection" or opts.show_text == "everywhere")
         for _, index in ipairs(order) do
-            g[names[index]] = geometry_functions[index](
-                g.window[1], g.window[2],
-                g.gallery_position[1], g.gallery_position[2],
-                g.gallery_size[1], g.gallery_size[2],
-                g.min_spacing[1], g.min_spacing[2],
-                g.thumbnail_size[1], g.thumbnail_size[2]
+            new_geom[names[index]] = geometry_functions[index](
+                ww, wh,
+                new_geom.gallery_position[1], new_geom.gallery_position[2],
+                new_geom.gallery_size[1], new_geom.gallery_size[2],
+                new_geom.min_spacing[1], new_geom.min_spacing[2],
+                new_geom.thumbnail_size[1], new_geom.thumbnail_size[2]
             )
-            -- extrawuerst
             if show_text and names[index] == "min_spacing" then
-                g.min_spacing[2] = math.max(opts.text_size, g.min_spacing[2])
+                new_geom.min_spacing[2] = math.max(opts.text_size, new_geom.min_spacing[2])
             elseif names[index] == "thumbnail_size" then
-                g.thumbnail_size[1] = math.floor(g.thumbnail_size[1])
-                g.thumbnail_size[2] = math.floor(g.thumbnail_size[2])
+                new_geom.thumbnail_size[1] = math.floor(new_geom.thumbnail_size[1])
+                new_geom.thumbnail_size[2] = math.floor(new_geom.thumbnail_size[2])
             end
         end
+        gallery:set_geometry(
+            new_geom.gallery_position[1], new_geom.gallery_position[2],
+            new_geom.gallery_size[1], new_geom.gallery_size[2],
+            new_geom.min_spacing[1], new_geom.min_spacing[2],
+            new_geom.thumbnail_size[1], new_geom.thumbnail_size[2]
+        )
     end
 end
+
 
 function normalize_path(path)
     if string.find(path, "://") then
@@ -383,8 +401,28 @@ end
 function time_pos_changed(_, val)
     time_pos = val
     if opts.highlight_previous then
-        gallery:ass_show(true, false, false, false)
+        gallery:ass_refresh(true, false, false, false)
     end
+end
+
+function idle()
+    if pending_selection then
+        gallery:set_selection(pending_selection)
+        pending_selection = nil
+    end
+    if geometry_changed then
+        geometry_changed = false
+        compute_geometry()
+    end
+    if ass_changed then
+        ass_changed = false
+        local ww, wh = mp.get_osd_size()
+        mp.set_osd_ass(ww, wh, ass)
+    end
+end
+
+function mark_geometry_stale()
+    geometry_changed = true
 end
 
 function start()
@@ -439,7 +477,9 @@ function start()
         end
     end
 
-    if not gallery:activate(selection) then return end
+    compute_geometry()
+    gallery:set_selection(sleection)
+    if not gallery:activate() then return end
     if opts.command_on_open ~= "" then
         mp.command(opts.command_on_open)
     end
@@ -449,7 +489,11 @@ function start()
         did_pause = true
     end
     mp.observe_property("time-pos", "number", time_pos_changed)
+    mp.observe_property("osd-width", "native", mark_geometry_stale)
+    mp.observe_property("osd-height", "native", mark_geometry_stale)
+    mp.register_idle(idle)
     mp.register_event("end-file", stop)
+    idle()
 
     setup_ui_handlers()
 end
@@ -471,8 +515,11 @@ function stop()
         mp.command(opts.command_on_close)
     end
     mp.unobserve_property(time_pos_changed)
+    mp.unobserve_property(mark_geometry_stale)
+    mp.unregister_idle(idle)
     gallery:deactivate()
     teardown_ui_handlers()
+    idle()
 end
 
 function toggle()
