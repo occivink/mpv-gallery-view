@@ -143,9 +143,6 @@ function item_to_time(item, with_offset)
     end
 end
 
-gallery.too_small = function()
-    stop()
-end
 gallery.item_to_overlay_path = function(index, item)
     local thumb_filename = string.format("%s_%u_%d_%d",
         path_hash,
@@ -469,7 +466,7 @@ function start()
     end
 
     time_pos = mp.get_property_number("time-pos")
-    local selection = 0
+    local selection = #gallery.items
     for index, value in ipairs(gallery.items) do
         if item_to_time(value, false) > time_pos + 0.01 then
             selection = math.max(index - 1, 1)
@@ -478,7 +475,7 @@ function start()
     end
 
     compute_geometry()
-    gallery:set_selection(sleection)
+    gallery:set_selection(selection)
     if not gallery:activate() then return end
     if opts.command_on_open ~= "" then
         mp.command(opts.command_on_open)

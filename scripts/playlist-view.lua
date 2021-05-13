@@ -220,8 +220,9 @@ do
         bindings_repeat[opts.PAGE_DOWN] = function() increment_func(  gallery.geometry.columns * gallery.geometry.rows, true) end
         bindings_repeat[opts.RANDOM]    = function() pending_selection = math.random(1, #gallery.items) end
         bindings_repeat[opts.REMOVE]    = function()
-            mp.commandv("playlist-remove", gallery.selection - 1)
-            gallery.selection = gallery.selection + (gallery.selection == #gallery.items and -1 or 1)
+            local s = gallery.selection
+            mp.commandv("playlist-remove", s - 1)
+            gallery:set_selection(s + (s == #gallery.items and -1 or 1))
         end
 
     local bindings = {}
@@ -412,15 +413,16 @@ function playlist_changed(key, playlist)
         stop()
         return
     end
-    local selection = gallery.items[gallery.selection].filename
+    local selection_filename = gallery.items[gallery.selection].filename
     gallery.items = playlist
-    gallery.selection = math.max(1, math.min(gallery.selection, #gallery.items))
+    local new_selection = math.max(1, math.min(gallery.selection, #gallery.items))
     for i, f in ipairs(gallery.items) do
-        if selection == f.filename then
-            gallery.selection = i
+        if selection_filename == f.filename then
+            new_selection = i
             break
         end
     end
+    gallery:set_selection(new_selection)
     gallery:items_changed()
 end
 
