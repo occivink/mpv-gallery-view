@@ -126,6 +126,7 @@ function reload_config()
         local ww, wh = mp.get_osd_size()
         compute_geometry(ww, wh)
         gallery:ass_refresh(true, true, true, true)
+        reload_items()
     end
 end
 options.read_options(opts, mp.get_script_name(), reload_config)
@@ -450,20 +451,7 @@ function mark_geometry_stale()
     geometry_changed = true
 end
 
-function start()
-    if gallery.active then return end
-    if not mp.get_property_bool("seekable") then
-        msg.error("Video is not seekable")
-        return
-    end
-
-    path = mp.get_property("path")
-    path_hash = string.sub(sha256(normalize_path(path)), 1, 12)
-    duration = mp.get_property_number("duration")
-    if not duration or duration == 0 then return end
-    duration = duration - (1 / mp.get_property_number("container-fps", 30))
-    if duration == 0 then return end
-
+function reload_items()
     with_chapters = false
     if opts.chapter_mode then
         local chap_list = mp.get_property_native("chapter-list")
@@ -493,7 +481,6 @@ function start()
         gallery.items = times
     end
 
-    time_pos = mp.get_property_number("time-pos")
     local selection = #gallery.items
     for index, value in ipairs(gallery.items) do
         if item_to_time(value, false) > time_pos + 0.01 then
@@ -501,10 +488,29 @@ function start()
             break
         end
     end
+    gallery:items_changed()
+    gallery:set_selection(selection)
+end
+
+function start()
+    if gallery.active then return end
+    if not mp.get_property_bool("seekable") then
+        msg.error("Video is not seekable")
+        return
+    end
+
+    path = mp.get_property("path")
+    path_hash = string.sub(sha256(normalize_path(path)), 1, 12)
+    duration = mp.get_property_number("duration")
+    if not duration or duration == 0 then return end
+    duration = duration - (1 / mp.get_property_number("container-fps", 30))
+    if duration == 0 then return end
+
+    time_pos = mp.get_property_number("time-pos")
+    reload_items()
 
     local ww, wh = mp.get_osd_size()
     compute_geometry(ww, wh)
-    gallery:set_selection(selection)
     if not gallery:activate() then return end
     if opts.command_on_open ~= "" then
         mp.command(opts.command_on_open)
