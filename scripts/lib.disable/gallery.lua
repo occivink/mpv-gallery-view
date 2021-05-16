@@ -208,9 +208,13 @@ function gallery_mt.ensure_view_valid(gallery)
 
     if v.last >= #gallery.items then
         v.last = #gallery.items
-        last_row = math.floor((v.last - 1) / g.columns)
-        first_row = math.max(0, last_row - g.rows + 1)
-        v.first = 1 + first_row * g.columns
+        if g.rows == 1 then
+            v.first = v.last - g.columns + 1
+        else
+            local last_row = math.floor((v.last - 1) / g.columns)
+            local first_row = math.max(0, last_row - g.rows + 1)
+            v.first = 1 + first_row * g.columns
+        end
         changed = true
     elseif v.first == 0 or v.last == 0 or v.last - v.first + 1 ~= max_thumbs then
         -- special case: the number of possible thumbnails was changed
@@ -230,12 +234,11 @@ function gallery_mt.ensure_view_valid(gallery)
 
     if gallery.selection < v.first then
         -- the selection is now on the first line
-        v.first = selection_row * g.columns + 1
+        v.first = (g.rows == 1) and gallery.selection or selection_row * g.columns + 1
         v.last = math.min(#gallery.items, v.first + max_thumbs - 1)
         changed = true
     elseif gallery.selection > v.last then
-        -- the selection is now on the last line
-        v.last = (selection_row + 1) * g.columns
+        v.last = (g.rows == 1) and gallery.selection or (selection_row + 1) * g.columns
         v.first = math.max(1, v.last - max_thumbs + 1)
         v.last = math.min(#gallery.items, v.last)
         changed = true
