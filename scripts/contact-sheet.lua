@@ -488,8 +488,7 @@ function reload_items()
             break
         end
     end
-    gallery:items_changed()
-    gallery:set_selection(selection)
+    gallery:items_changed(selection)
 end
 
 function start()

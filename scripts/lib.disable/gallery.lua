@@ -446,7 +446,8 @@ function gallery_mt.set_geometry(gallery, x, y, w, h, sw, sh, tw, th)
     gallery:ass_refresh(true, true, true, true)
 end
 
-function gallery_mt.items_changed(gallery)
+function gallery_mt.items_changed(gallery, new_sel)
+    gallery.selection = math.max(1, math.min(new_sel, #gallery.items))
     if not gallery.active then return end
     gallery:ensure_view_valid()
     gallery:refresh_overlays(false)

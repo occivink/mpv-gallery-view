@@ -443,8 +443,7 @@ function playlist_changed(key, playlist)
             break
         end
     end
-    gallery:set_selection(new_selection)
-    gallery:items_changed()
+    gallery:items_changed(new_selection)
 end
 
 function playlist_pos_changed(_, val)
