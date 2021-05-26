@@ -209,7 +209,7 @@ function gallery_mt.ensure_view_valid(gallery)
     if v.last >= #gallery.items then
         v.last = #gallery.items
         if g.rows == 1 then
-            v.first = v.last - g.columns + 1
+            v.first = math.max(1, v.last - g.columns + 1)
         else
             local last_row = math.floor((v.last - 1) / g.columns)
             local first_row = math.max(0, last_row - g.rows + 1)
