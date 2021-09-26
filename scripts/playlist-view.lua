@@ -39,6 +39,7 @@ gallery.config.accurate = false
 opts = {
     thumbs_dir = ON_WINDOWS and "%APPDATA%\\mpv\\gallery-thumbs-dir" or "~/.mpv_thumbs_dir/",
     generate_thumbnails_with_mpv = ON_WINDOWS,
+    mkdir_thumbs = false,
 
     gallery_position = "{ (ww - gw) / 2, (wh - gh) / 2}",
     gallery_size = "{ 9 * ww / 10, 9 * wh / 10 }",
@@ -111,7 +112,11 @@ function reload_config()
     end
     local res = utils.file_info(thumbs_dir)
     if not res or not res.is_dir then
-        msg.error(string.format("Thumbnail directory \"%s\" does not exist", thumbs_dir))
+        if opts.mkdir_thumbs then
+            os.execute("mkdir " .. thumbs_dir)
+        else
+            msg.error(string.format("Thumbnail directory \"%s\" does not exist", thumbs_dir))
+        end
     end
 
     compute_geometry = get_geometry_function()
