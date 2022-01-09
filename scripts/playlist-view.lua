@@ -113,7 +113,7 @@ function reload_config()
     local res = utils.file_info(thumbs_dir)
     if not res or not res.is_dir then
         if opts.mkdir_thumbs then
-            os.execute("mkdir " .. thumbs_dir)
+            utils.subprocess({ args = { "mkdir", thumbs_dir } })
         else
             msg.error(string.format("Thumbnail directory \"%s\" does not exist", thumbs_dir))
         end
