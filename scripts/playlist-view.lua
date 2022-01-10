@@ -39,7 +39,7 @@ gallery.config.accurate = false
 opts = {
     thumbs_dir = ON_WINDOWS and "%APPDATA%\\mpv\\gallery-thumbs-dir" or "~/.mpv_thumbs_dir/",
     generate_thumbnails_with_mpv = ON_WINDOWS,
-    mkdir_thumbs = false,
+    mkdir_thumbs = true,
 
     gallery_position = "{ (ww - gw) / 2, (wh - gh) / 2}",
     gallery_size = "{ 9 * ww / 10, 9 * wh / 10 }",
