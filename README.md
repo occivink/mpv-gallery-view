@@ -5,7 +5,7 @@ Playlist view and [contact sheet](https://en.wikipedia.org/wiki/Contact_print) s
 # Important
 
 * **Make sure that the thumbnail directory exists for thumbnail generation to work.**
-* **The default thumbnail directory is probably not appropriate for your system.** `~/.mpv_thumbs_dir/` on Unix, `%APPDATA%\mpv\gallery-thumbs-dir` on Windows. See Configuration for instructions on how to change it.
+* The default directories are: `~/.cache/thumbnails/mpv-gallery` on Unix, `%APPDATA%\mpv\gallery-thumbs-dir` on Windows. See Configuration for instructions on how to change it.
 
 # Installation
 
@@ -42,12 +42,12 @@ When the playlist-view is open, you can flag playlist entries (using `SPACE` by 
 
 Yet another ad-hoc thumbnail library, which is not shared with any other program.
 
-Management of the thumbnails is left to the user. In particular, stale thumbnails (whose file has been (re)moved) are not deleted by the script. This can be fixed by deleting thumbnails which have not been accessed since N days with such a snippet
+Management of the thumbnails is left to the user. In particular, stale thumbnails (whose file has been (re)moved) are not deleted by the script. This can be fixed by deleting thumbnails which have not been accessed since N days with such a snippet:
 ```
 days=7
 min=$((days * 60 * 24))
 # run first without -delete to be sure
-find ~/.mpv_thumbs_dir/ -maxdepth 1 -type f -amin +$min -delete
+find ~/.cache/thumbnails/mpv-gallery/ -maxdepth 1 -type f -amin +$min -delete
 ```
 
 Thumbnails are raw bgra, which is somewhat wasteful. With the default settings, a thumbnail uses 81KB (around 13k thumbnails in a GB).
