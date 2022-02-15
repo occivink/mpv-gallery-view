@@ -1,3 +1,14 @@
+--[[
+mpv-gallery-view | https://github.com/occivink/mpv-gallery-view
+
+This mpv script generates and displays a contact sheet of a video.
+
+File placement: scripts/contact-sheet.lua
+Settings: script-opts/contact_sheet.conf
+Requires: script-modules/gallery-module.lua
+Default keybinding: c script-binding contact-sheet-toggle
+]]
+
 local utils = require 'mp.utils'
 local msg = require 'mp.msg'
 local options = require 'mp.options'

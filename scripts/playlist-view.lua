@@ -1,3 +1,14 @@
+--[[
+mpv-gallery-view | https://github.com/occivink/mpv-gallery-view
+
+This mpv script generates and displays an overview of the current playlist with thumbnails.
+
+File placement: scripts/playlist-view.lua
+Settings: script-opts/playlist_view.conf
+Requires: script-modules/gallery-module.lua
+Default keybinding: g script-binding playlist-view-toggle
+]]
+
 local utils = require 'mp.utils'
 local msg = require 'mp.msg'
 local options = require 'mp.options'
