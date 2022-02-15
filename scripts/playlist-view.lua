@@ -37,7 +37,7 @@ gallery.config.always_show_placeholders = true
 gallery.config.accurate = false
 
 opts = {
-    thumbs_dir = ON_WINDOWS and "%APPDATA%\\mpv\\gallery-thumbs-dir" or "~/.mpv_thumbs_dir/",
+    thumbs_dir = ON_WINDOWS and "%APPDATA%\\mpv\\gallery-thumbs-dir" or "~/.cache/thumbnails/mpv-gallery/",
     generate_thumbnails_with_mpv = ON_WINDOWS,
     mkdir_thumbs = true,
 
