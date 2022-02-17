@@ -9,7 +9,8 @@ Playlist view and [contact sheet](https://en.wikipedia.org/wiki/Contact_print) s
 
 # Installation
 
-Copy everything in `scripts/` to your mpv scripts directory.
+Copy the .lua files in `scripts/` to your mpv scripts directory (See [mpv's manual](https://mpv.io/manual/master/#files)). Copy `script-modules/gallery.lua` to a directory called script-modules. This directory should be alongside the scripts directory in mpv's config path. Create the directories, if not already present. 
+
 
 If you are not interested in the playlist view or contact sheet, respectively remove the [`playlist-view.lua`](scripts/playlist-view.lua) or [`contact-sheet.lua`](scripts/contact-sheet.lua) files.
 

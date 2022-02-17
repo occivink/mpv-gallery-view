@@ -1,3 +1,14 @@
+--[[
+mpv-gallery-view | https://github.com/occivink/mpv-gallery-view
+
+This mpv script implements a worker for generating gallery thumbnails.
+It is meant to be used by other scripts.
+Multiple copies of this script can be loaded by mpv.
+
+File placement: inside scripts directory
+Settings: script-opts/gallery_worker.conf
+]]
+
 local utils = require 'mp.utils'
 local msg = require 'mp.msg'
 
