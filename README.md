@@ -54,3 +54,7 @@ find ~/.cache/thumbnails/mpv-gallery/ -maxdepth 1 -type f -amin +$min -delete
 Thumbnails are raw bgra, which is somewhat wasteful. With the default settings, a thumbnail uses 81KB (around 13k thumbnails in a GB).
 
 Due to an [mpv bug](https://github.com/mpv-player/mpv/issues/8350), the playlist-view or contact-sheet might not appear right away when toggled. Using the mpv config `video-sync=display-resample` or the script config `pause_on_start=no` indirectly solves the problem.
+
+# License
+
+Unlicense, except for the file script-modules/sha256.lua
