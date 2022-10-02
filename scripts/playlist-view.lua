@@ -16,6 +16,7 @@ local options = require 'mp.options'
 package.path = mp.command_native({ "expand-path", "~~/script-modules/?.lua;" }) .. package.path
 require 'gallery'
 local sha256 = require 'sha256'
+local gallery_utils = require 'gallery-utils'
 
 ON_WINDOWS = (package.config:sub(1,1) ~= "/")
 
@@ -30,7 +31,7 @@ playlist_pos = 0
 bindings = {}
 bindings_repeat = {}
 
-compute_geometry = function(ww, wh) end
+compute_geometry = nil -- function used to compute based on options
 
 ass_changed = false
 ass = ""
@@ -126,15 +127,26 @@ function reload_config()
         end
     end
 
-    compute_geometry = get_geometry_function()
+    compute_geometry = make_gallery_geometry_function(opts.gallery_position, opts.gallery_size, opts.min_spacing, opts.thumbnail_size)
     reload_bindings()
     if gallery.active then
-        local ww, wh = mp.get_osd_size()
-        compute_geometry(ww, wh)
+        apply_geometry()
         gallery:ass_refresh(true, true, true, true)
     end
 end
 options.read_options(opts, mp.get_script_name(), reload_config)
+
+function apply_geometry()
+    if compute_geometry == nil then return end
+    local ww, wh = mp.get_osd_size()
+    local new_geom = compute_geometry(ww, wh, opts.show_text and opts.text_size)
+    gallery:set_geometry(
+        new_geom.position[1], new_geom.position[2],
+        new_geom.size[1], new_geom.size[2],
+        new_geom.min_spacing[1], new_geom.min_spacing[2],
+        new_geom.thumbnail_size[1], new_geom.thumbnail_size[2]
+    )
+end
 
 
 gallery.ass_show = function(new_ass)
@@ -145,7 +157,8 @@ gallery.item_to_overlay_path = function(index, item)
     local filename = item.filename
     local filename_hash = hash_cache[filename]
     if filename_hash == nil then
-        filename_hash = string.sub(sha256.hash(normalize_path(filename)), 1, 12)
+        local norm = gallery_utils.normalize_path(utils.getcwd(), filename)
+        filename_hash = string.sub(sha256.hash(norm), 1, 12)
         hash_cache[filename] = filename_hash
     end
     local thumb_filename = string.format("%s_%d_%d_%s", filename_hash, gallery.geometry.thumbnail_size[1], gallery.geometry.thumbnail_size[2], string.gsub(opts.take_thumbnail_at, '%%', 'p'))
@@ -153,18 +166,6 @@ gallery.item_to_overlay_path = function(index, item)
 end
 gallery.item_to_thumbnail_params = function(index, item)
     return item.filename, opts.take_thumbnail_at
-end
-function blend_colors(colors)
-    if #colors == 1 then return colors[1] end
-    local comp1 = 0
-    local comp2 = 0
-    local comp3 = 0
-    for _, val in ipairs(colors) do
-        comp1 = comp1 + tonumber(string.sub(val, 1, 2), 16)
-        comp2 = comp2 + tonumber(string.sub(val, 3, 4), 16)
-        comp3 = comp3 + tonumber(string.sub(val, 5, 6), 16)
-    end
-    return string.format("%02x%02x%02x", comp1 / #colors, comp2 / #colors, comp3 / #colors)
 end
 gallery.item_to_border = function(index, item)
     local size = 0
@@ -184,7 +185,7 @@ gallery.item_to_border = function(index, item)
     if #colors == 0 then
         return opts.normal_border_size, opts.normal_border_color
     else
-        return size, blend_colors(colors)
+        return size, gallery_utils.blend_colors(colors)
     end
 end
 gallery.item_to_text = function(index, item)
@@ -291,128 +292,6 @@ function reload_bindings()
     if gallery.active then
         setup_ui_handlers()
     end
-end
-
-function get_geometry_function()
-    local geometry_functions = loadstring(string.format([[
-    return {
-    function(ww, wh, gx, gy, gw, gh, sw, sh, tw, th)
-        return %s
-    end,
-    function(ww, wh, gx, gy, gw, gh, sw, sh, tw, th)
-        return %s
-    end,
-    function(ww, wh, gx, gy, gw, gh, sw, sh, tw, th)
-        return %s
-    end,
-    function(ww, wh, gx, gy, gw, gh, sw, sh, tw, th)
-        return %s
-    end
-    }]], opts.gallery_position, opts.gallery_size, opts.min_spacing, opts.thumbnail_size))()
-
-    local names = { "gallery_position", "gallery_size", "min_spacing", "thumbnail_size" }
-    local order = {} -- the order in which the 4 properties should be computed, based on inter-dependencies
-
-    -- build the dependency matrix
-    local patterns = { "g[xy]", "g[wh]", "s[wh]", "t[wh]" }
-    local deps = {}
-    for i = 1,4 do
-        for j = 1,4 do
-            local i_depends_on_j = (string.find(opts[names[i]], patterns[j]) ~= nil)
-            if i == j and i_depends_on_j then
-                msg.error(names[i] .. " depends on itself")
-                return
-            end
-            deps[i * 4 + j] = i_depends_on_j
-        end
-    end
-
-    local has_deps = function(index)
-        for j = 1,4 do
-            if deps[index * 4 + j] then
-                return true
-            end
-        end
-        return false
-    end
-    local num_resolved = 0
-    local resolved = { false, false, false, false }
-    while true do
-        local resolved_one = false
-        for i = 1, 4 do
-            if resolved[i] then
-                -- nothing to do
-            elseif not has_deps(i) then
-                order[#order + 1] = i
-                -- since i has no deps, anything that depends on it might as well not
-                for j = 1, 4 do
-                    deps[j * 4 + i] = false
-                end
-                resolved[i] = true
-                resolved_one = true
-                num_resolved = num_resolved + 1
-            end
-        end
-        if num_resolved == 4 then
-            break
-        elseif not resolved_one then
-            local str = ""
-            for index, resolved in ipairs(resolved) do
-                if not resolved then
-                    str = (str == "" and "" or (str .. ", ")) .. names[index]
-                end
-            end
-            msg.error("Circular dependency between " .. str)
-            return
-        end
-    end
-
-    return function(window_width, window_height)
-        local new_geom = {
-             gallery_position = {},
-             gallery_size = {},
-             min_spacing = {},
-             thumbnail_size = {},
-         }
-        for _, index in ipairs(order) do
-            new_geom[names[index]] = geometry_functions[index](
-                window_width, window_height,
-                new_geom.gallery_position[1], new_geom.gallery_position[2],
-                new_geom.gallery_size[1], new_geom.gallery_size[2],
-                new_geom.min_spacing[1], new_geom.min_spacing[2],
-                new_geom.thumbnail_size[1], new_geom.thumbnail_size[2]
-            )
-            -- extrawuerst
-            if opts.show_text and names[index] == "min_spacing" then
-                new_geom.min_spacing[2] = math.max(opts.text_size, new_geom.min_spacing[2])
-            elseif names[index] == "thumbnail_size" then
-                new_geom.thumbnail_size[1] = math.floor(new_geom.thumbnail_size[1])
-                new_geom.thumbnail_size[2] = math.floor(new_geom.thumbnail_size[2])
-            end
-        end
-        gallery:set_geometry(
-            new_geom.gallery_position[1], new_geom.gallery_position[2],
-            new_geom.gallery_size[1], new_geom.gallery_size[2],
-            new_geom.min_spacing[1], new_geom.min_spacing[2],
-            new_geom.thumbnail_size[1], new_geom.thumbnail_size[2]
-        )
-    end
-end
-
-function normalize_path(path)
-    if string.find(path, "://") then
-        return path
-    end
-    path = utils.join_path(utils.getcwd(), path)
-    if ON_WINDOWS then
-        path = string.gsub(path, "\\", "/")
-    end
-    path = string.gsub(path, "/%./", "/")
-    local n
-    repeat
-        path, n = string.gsub(path, "/[^/]*/%.%./", "/", 1)
-    until n == 0
-    return path
 end
 
 function playlist_changed(key, playlist)
