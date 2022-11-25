@@ -20,6 +20,7 @@ ON_WINDOWS = (package.config:sub(1,1) ~= "/")
 
 -- global variables
 
+mode_move = false
 flags = {}
 resume = {}
 did_pause = false
@@ -89,20 +90,23 @@ opts = {
 
     flagged_file_path = "./mpv_gallery_flagged",
 
-    mouse_support = true,
-    UP        = "UP",
-    DOWN      = "DOWN",
-    LEFT      = "LEFT",
-    RIGHT     = "RIGHT",
-    PAGE_UP   = "PGUP",
-    PAGE_DOWN = "PGDWN",
-    FIRST     = "HOME",
-    LAST      = "END",
-    RANDOM    = "r",
-    ACCEPT    = "ENTER",
-    CANCEL    = "ESC",
-    REMOVE    = "DEL",
-    FLAG      = "SPACE",
+    mouse_support        = true,
+    PLAYLIST_VIEW_TOGGLE = "g",
+    UP                   = "UP",
+    DOWN                 = "DOWN",
+    LEFT                 = "LEFT",
+    RIGHT                = "RIGHT",
+    PAGE_UP              = "PGUP",
+    PAGE_DOWN            = "PGDWN",
+    FIRST                = "HOME",
+    LAST                 = "END",
+    RANDOM               = "r",
+    SHUFFLE              = "s",
+    ACCEPT               = "ENTER",
+    CANCEL               = "ESC",
+    REMOVE               = "DEL",
+    FLAG                 = "SPACE",
+    MODE_MOVE_TOGGLE     = "m",
 }
 function reload_config()
     gallery.config.background_color = opts.background_color
@@ -135,7 +139,11 @@ function reload_config()
 end
 options.read_options(opts, mp.get_script_name(), reload_config)
 
-
+-- Taken from https://github.com/cvzi/mpv-youtube-download/blob/main/youtube-download.lua
+if opts.thumbs_dir:match('^/:dir%%mpvconf%%') then
+    opts.thumbs_dir = opts.thumbs_dir:gsub('/:dir%%mpvconf%%',
+        mp.find_config_file('.'))
+end
 
 local sha256
 --[[
@@ -276,6 +284,14 @@ function reload_bindings()
         end
         gallery:ass_refresh(true, false, false, false)
     end
+    bindings[opts.MODE_MOVE_TOGGLE] = function()
+        if mode_move == true then
+            mode_move = false
+        elseif mode_move == false then
+            mode_move = true
+        end
+        reload_bindings()
+    end
     if opts.mouse_support then
         bindings["MBTN_LEFT"]  = function()
             local index = gallery:index_at(mp.get_mouse_pos())
@@ -298,10 +314,72 @@ function reload_bindings()
     bindings_repeat[opts.PAGE_UP]   = function() increment_func(- gallery.geometry.columns * gallery.geometry.rows, true) end
     bindings_repeat[opts.PAGE_DOWN] = function() increment_func(  gallery.geometry.columns * gallery.geometry.rows, true) end
     bindings_repeat[opts.RANDOM]    = function() pending_selection = math.random(1, #gallery.items) end
+    bindings_repeat[opts.SHUFFLE]   = function()
+        mp.commandv("playlist-shuffle")
+        local position_current = mp.get_property_number('playlist-pos')
+        mp.commandv("playlist-move", position_current, 0)
+    end
     bindings_repeat[opts.REMOVE]    = function()
         local s = gallery.selection
         mp.commandv("playlist-remove", s - 1)
         gallery:set_selection(s + (s == #gallery.items and -1 or 1))
+    end
+
+    if mode_move == true then
+        bindings[opts.FIRST] = function()
+            local selected = gallery.selection - 1
+            mp.commandv("playlist-move", selected, 0)
+        end
+        bindings[opts.LAST] = function()
+            local selected = gallery.selection - 1
+            mp.commandv("playlist-move", selected, -1)
+        end
+
+        bindings_repeat[opts.UP]        = function()
+            local selected = gallery.selection - 1
+            local position_new = selected - gallery.geometry.columns
+
+            -- Prevent looping to end of playlist
+            if position_new < 0 then return end
+
+            mp.commandv("playlist-move", selected, position_new)
+        end
+        bindings_repeat[opts.DOWN]      = function()
+            local selected = gallery.selection - 1
+            local position_new = selected + 1 + gallery.geometry.columns
+
+            mp.commandv("playlist-move", selected, position_new)
+        end
+        bindings_repeat[opts.LEFT]      = function()
+            local selected = gallery.selection - 1
+            local position_new = selected - 1
+
+            -- Prevent looping to end of playlist
+            if position_new < 0 then return end
+
+            mp.commandv("playlist-move", selected, position_new)
+        end
+        bindings_repeat[opts.RIGHT]     = function()
+            local selected = gallery.selection - 1
+            local position_new = selected + 2
+
+            mp.commandv("playlist-move", selected, position_new)
+        end
+        bindings_repeat[opts.PAGE_UP]   = function()
+            local selected = gallery.selection - 1
+            local position_new = selected - gallery.geometry.columns * gallery.geometry.rows
+
+            -- Prevent looping to end of playlist
+            if position_new < 0 then return end
+
+            mp.commandv("playlist-move", selected, position_new)
+        end
+        bindings_repeat[opts.PAGE_DOWN] = function()
+            local selected = gallery.selection - 1
+            local position_new = selected + 1 + gallery.geometry.columns * gallery.geometry.rows
+
+            mp.commandv("playlist-move", selected, position_new)
+        end
     end
 
     if gallery.active then
@@ -552,6 +630,10 @@ function stop()
     if opts.command_on_close ~= "" then
         mp.command(opts.command_on_close)
     end
+    if mode_move == true then
+        mode_move = false
+        reload_bindings()
+    end
     mp.unobserve_property(playlist_pos_changed)
     mp.unobserve_property(playlist_changed)
     mp.unobserve_property(mark_geometry_stale)
@@ -612,6 +694,6 @@ end
 
 mp.add_key_binding(nil, "playlist-view-open", function() start() end)
 mp.add_key_binding(nil, "playlist-view-close", stop)
-mp.add_key_binding('g', "playlist-view-toggle", toggle)
+mp.add_key_binding(opts.PLAYLIST_VIEW_TOGGLE, "playlist-view-toggle", toggle)
 mp.add_key_binding(nil, "playlist-view-load-selection", load_selection)
 mp.add_key_binding(nil, "playlist-view-write-flag-file", write_flag_file)
