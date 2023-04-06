@@ -114,7 +114,7 @@ function ytdl_thumbnail_url(input_path)
     local es, json, result = exec(command)
 
     if (es < 0) or (json == nil) or (json == "") then
-        msg.error("fetching thumbnail url with youtube-dl failed for" .. input_path)
+        msg.error("fetching thumbnail url with youtube-dl failed for: " .. input_path)
         return input_path
     end
     local json, err = utils.parse_json(json)
