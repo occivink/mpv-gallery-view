@@ -311,7 +311,7 @@ function reload_bindings()
 end
 
 function get_geometry_function()
-    local geometry_functions = loadstring(string.format([[
+    local geometry_functions = (loadstring or load)(string.format([[
     return {
     function(ww, wh, gx, gy, gw, gh, sw, sh, tw, th)
         return %s
